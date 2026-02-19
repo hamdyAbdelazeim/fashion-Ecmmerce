@@ -21,6 +21,7 @@ app.use(cors({
         'http://127.0.0.1:5173',
         'http://127.0.0.1:5174',
         'http://127.0.0.1:5175',
+        'https://fashion-ecmmerce-wtxj.vercel.app',
         process.env.CLIENT_URL
     ].filter(Boolean),
     credentials: true,
