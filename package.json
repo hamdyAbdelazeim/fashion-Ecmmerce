@@ -1,0 +1,19 @@
+{
+  "name": "fashion-ecommerce",
+  "version": "1.0.0",
+  "description": "Full-stack MERN Fashion E-commerce Platform",
+  "main": "index.js",
+  "scripts": {
+    "start": "concurrently \"npm run server\" \"npm run client\"",
+    "server": "cd server && npm start",
+    "client": "cd client && npm run dev",
+    "seed": "cd server && node seeder.js",
+    "install-all": "npm install && cd server && npm install && cd ../client && npm install"
+  },
+  "keywords": [],
+  "author": "",
+  "license": "ISC",
+  "dependencies": {
+    "concurrently": "^8.2.2"
+  }
+}
