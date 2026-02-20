@@ -144,16 +144,34 @@ const Navbar = () => {
                             <Link to="/shop?department=Women" className="block px-3 py-2 text-base font-medium hover:text-accent hover:bg-gray-50 rounded-md uppercase">{t.women}</Link>
                             <Link to="/shop?department=Men" className="block px-3 py-2 text-base font-medium hover:text-accent hover:bg-gray-50 rounded-md uppercase">{t.men}</Link>
                             <Link to="/shop?department=Kids" className="block px-3 py-2 text-base font-medium hover:text-accent hover:bg-gray-50 rounded-md uppercase">{t.kids}</Link>
-                            <div className="border-t border-gray-100 pt-4 mt-2 flex justify-around">
+                            <div className="border-t border-gray-100 pt-4 mt-2 space-y-1">
                                 {user ? (
-                                    <Link to="/profile" className="flex items-center space-x-2 text-sm font-medium">
-                                        <AvatarBubble size={7} />
-                                        <span>{user.name.split(' ')[0]}</span>
-                                    </Link>
+                                    <>
+                                        <div className="flex items-center gap-3 px-3 py-2">
+                                            <AvatarBubble size={9} />
+                                            <div className="min-w-0">
+                                                <p className="text-sm font-semibold text-gray-900 truncate">{user.name}</p>
+                                                <p className="text-xs text-gray-400 truncate">{user.email}</p>
+                                            </div>
+                                        </div>
+                                        <Link to="/profile" className="block px-3 py-2 text-sm font-medium text-gray-700 hover:text-accent hover:bg-gray-50 rounded-md">{t.myProfile}</Link>
+                                        <button
+                                            onClick={() => { dispatch(logout()); window.location.href = '/login'; }}
+                                            className="block w-full text-left px-3 py-2 text-sm font-medium text-red-500 hover:bg-red-50 rounded-md"
+                                        >
+                                            {t.signOut}
+                                        </button>
+                                    </>
                                 ) : (
-                                    <Link to="/login" className="flex items-center space-x-2 text-sm font-medium"><User size={18} /> <span>Account</span></Link>
+                                    <Link to="/login" className="flex items-center gap-2 px-3 py-2 text-sm font-medium hover:text-accent hover:bg-gray-50 rounded-md"><User size={18} /> <span>Account</span></Link>
                                 )}
-                                <button onClick={() => dispatch(toggleCart())} className="flex items-center space-x-2 text-sm font-medium"><ShoppingBag size={18} /> <span>Cart ({cartItems.length})</span></button>
+                                <button onClick={() => dispatch(toggleCart())} className="flex items-center gap-2 px-3 py-2 text-sm font-medium hover:text-accent hover:bg-gray-50 rounded-md w-full">
+                                    <ShoppingBag size={18} />
+                                    <span>Cart</span>
+                                    {cartItems.length > 0 && (
+                                        <span className="ml-auto bg-accent text-white text-[10px] font-bold w-4 h-4 rounded-full flex items-center justify-center">{cartItems.length}</span>
+                                    )}
+                                </button>
                             </div>
                         </div>
                     </motion.div>
