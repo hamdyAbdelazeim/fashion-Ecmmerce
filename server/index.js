@@ -32,8 +32,9 @@ const startServer = async () => {
     try {
         await mongoose.connect(process.env.MONGO_URI || 'mongodb://127.0.0.1:27017/fashion-ecommerce', {
             serverSelectionTimeoutMS: 5000,
+            dbName: 'fashion-ecommerce',   // always use this DB regardless of URI
         });
-        console.log('MongoDB Connected');
+        console.log('MongoDB Connected: fashion-ecommerce database');
     } catch (err) {
         console.error('MongoDB Connection Error (Running in Offline Mode):', err.message);
     }

@@ -565,8 +565,10 @@ const products = [
 
 const seedData = async () => {
     try {
-        await mongoose.connect(process.env.MONGO_URI || 'mongodb://127.0.0.1:27017/fashion-ecommerce');
-        console.log('✓ MongoDB Connected');
+        await mongoose.connect(process.env.MONGO_URI || 'mongodb://127.0.0.1:27017/fashion-ecommerce', {
+            dbName: 'fashion-ecommerce',
+        });
+        console.log('✓ MongoDB Connected: fashion-ecommerce database');
 
         await Product.deleteMany({});
         await User.deleteMany({});
