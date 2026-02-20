@@ -2,7 +2,7 @@ import { useState, useRef, useCallback, useEffect } from 'react';
 import { useSelector, useDispatch } from 'react-redux';
 import { motion, AnimatePresence } from 'framer-motion';
 import {
-    Camera, Save, X, Globe, ChevronDown, Search,
+    Camera, Save, X, ChevronDown, Search,
     User, Mail, Phone, MapPin, Lock, Bell, Shield,
     Check, Loader2,
 } from 'lucide-react';
@@ -93,7 +93,7 @@ const Profile = () => {
     const dispatch = useDispatch();
     const { user, isLoading, isSuccess, isError, message } = useSelector((state) => state.auth);
 
-    const { t, lang, changeLanguage } = useTranslation();
+    const { t } = useTranslation();
 
     // Avatar — start from what's already saved in the user object
     const [avatarSrc, setAvatarSrc] = useState(user?.avatar || null);
@@ -330,20 +330,7 @@ const Profile = () => {
                         </span>
                     </div>
 
-                    {/* Language switcher */}
-                    <div className="ml-auto pb-1 flex items-center gap-1 bg-white border border-gray-200 rounded-lg p-1 shadow-sm">
-                        <Globe size={13} className="text-gray-400 ml-1.5" />
-                        {['EN', 'DE'].map((l) => (
-                            <button
-                                key={l}
-                                onClick={() => changeLanguage(l)}
-                                className={`px-2.5 py-1 rounded-md text-xs font-semibold tracking-wider transition-all duration-200 ${lang === l ? 'bg-black text-white' : 'text-gray-400 hover:text-gray-700'
-                                    }`}
-                            >
-                                {l}
-                            </button>
-                        ))}
-                    </div>
+
                 </motion.div>
 
                 {/* ── Tab Bar ── */}
