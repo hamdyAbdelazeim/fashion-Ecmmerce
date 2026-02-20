@@ -1,11 +1,11 @@
 import { useState, useEffect, useRef, useCallback } from 'react';
 import { useDispatch, useSelector } from 'react-redux';
-import { fetchProductsPage, resetProducts, saveFilterPrefs, loadFilterPrefs } from '../store/productSlice';
+import { fetchAllProducts, filterProducts, saveFilterPrefs, loadFilterPrefs } from '../store/productSlice';
 import FilterSidebar from '../components/FilterSidebar';
 import ProductCard from '../components/ProductCard';
 import { Filter } from 'lucide-react';
 
-const SKELETON_COUNT = 12;
+const PAGE_SIZE = 12;
 
 const SkeletonCard = () => (
     <div className="animate-pulse" aria-hidden="true">
@@ -17,34 +17,29 @@ const SkeletonCard = () => (
 
 const Shop = () => {
     const dispatch = useDispatch();
-    const { products, hasMore, currentPage, totalCount, isLoading, isLoadingMore } = useSelector(
-        (state) => state.product
-    );
+    const { products, isLoading } = useSelector((state) => state.product);
 
-    // Restore saved filters from localStorage on first mount
     const [isMobileFilterOpen, setIsMobileFilterOpen] = useState(false);
-    const [activeFilters, setActiveFilters] = useState(() => loadFilterPrefs());
+    // How many products to display (increases as user scrolls)
+    const [displayCount, setDisplayCount] = useState(PAGE_SIZE);
 
-    // sentinel ref for IntersectionObserver
     const sentinelRef = useRef(null);
-    // guard to prevent duplicate in-flight fetches
-    const fetchingRef = useRef(false);
 
-    // Fetch page 1 whenever filters change
+    // Fetch all products once on mount (uses localStorage cache if fresh)
     useEffect(() => {
-        dispatch(resetProducts(activeFilters));
-        dispatch(fetchProductsPage({ filters: activeFilters, page: 1 }));
-    }, [activeFilters, dispatch]);
+        dispatch(fetchAllProducts());
+    }, [dispatch]);
 
-    // Load next page — guarded so it only fires once per scroll event
+    // Reset display count when filtered list changes length
+    useEffect(() => {
+        setDisplayCount(PAGE_SIZE);
+    }, [products.length]);
+
+    // IntersectionObserver: increase displayCount when sentinel enters viewport
     const loadMore = useCallback(() => {
-        if (fetchingRef.current || isLoadingMore || !hasMore) return;
-        fetchingRef.current = true;
-        dispatch(fetchProductsPage({ filters: activeFilters, page: currentPage + 1 }))
-            .finally(() => { fetchingRef.current = false; });
-    }, [dispatch, activeFilters, currentPage, hasMore, isLoadingMore]);
+        setDisplayCount(prev => Math.min(prev + PAGE_SIZE, products.length));
+    }, [products.length]);
 
-    // Attach IntersectionObserver to sentinel div at bottom of list
     useEffect(() => {
         const el = sentinelRef.current;
         if (!el) return;
@@ -57,11 +52,12 @@ const Shop = () => {
     }, [loadMore]);
 
     const handleFilterChange = (filters) => {
-        setActiveFilters(filters);
-        saveFilterPrefs(filters);   // persist to localStorage
+        saveFilterPrefs(filters);
+        dispatch(filterProducts(filters));
     };
 
-    const showInitialSkeleton = isLoading && products.length === 0;
+    const displayed   = products.slice(0, displayCount);
+    const hasMore     = displayCount < products.length;
 
     return (
         <div className="pt-24 pb-16 min-h-screen bg-gray-50">
@@ -71,13 +67,9 @@ const Shop = () => {
                 <div className="flex flex-col md:flex-row justify-between items-baseline mb-8">
                     <div>
                         <h1 className="text-4xl font-serif font-bold text-primary">Shop Collection</h1>
-                        {totalCount > 0 && !isLoading && (
-                            <p
-                                className="text-sm text-gray-500 mt-1"
-                                aria-live="polite"
-                                aria-atomic="true"
-                            >
-                                Showing {products.length} of {totalCount} products
+                        {!isLoading && products.length > 0 && (
+                            <p className="text-sm text-gray-500 mt-1" aria-live="polite">
+                                {products.length} product{products.length !== 1 ? 's' : ''}
                             </p>
                         )}
                     </div>
@@ -93,12 +85,12 @@ const Shop = () => {
                 </div>
 
                 <div className="flex flex-col lg:flex-row gap-8">
-                    {/* Sidebar */}
+                    {/* Filter sidebar */}
                     <FilterSidebar
                         isOpen={isMobileFilterOpen}
                         onClose={() => setIsMobileFilterOpen(false)}
                         onFilterChange={handleFilterChange}
-                        initialFilters={activeFilters}
+                        initialFilters={loadFilterPrefs()}
                     />
 
                     {/* Backdrop for mobile */}
@@ -110,50 +102,29 @@ const Shop = () => {
                         />
                     )}
 
-                    {/* Product Grid */}
+                    {/* Product grid */}
                     <main className="flex-1" aria-label="Product listing">
-                        {showInitialSkeleton ? (
-                            <div
-                                className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-8"
-                                aria-busy="true"
-                                aria-label="Loading products"
-                            >
-                                {Array.from({ length: SKELETON_COUNT }).map((_, i) => (
-                                    <SkeletonCard key={i} />
-                                ))}
+                        {isLoading ? (
+                            <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-8"
+                                aria-busy="true" aria-label="Loading products">
+                                {Array.from({ length: PAGE_SIZE }).map((_, i) => <SkeletonCard key={i} />)}
                             </div>
-                        ) : products.length > 0 ? (
+                        ) : displayed.length > 0 ? (
                             <>
-                                <div
-                                    className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-8"
-                                >
-                                    {products.map((product, index) => (
-                                        <ProductCard
-                                            key={product._id}
-                                            product={product}
-                                            index={index}
-                                        />
+                                <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-8">
+                                    {displayed.map((product, index) => (
+                                        <ProductCard key={product._id} product={product} index={index} />
                                     ))}
                                 </div>
 
-                                {/* Infinite scroll sentinel — observed by IntersectionObserver */}
-                                <div ref={sentinelRef} aria-hidden="true" className="h-4 mt-8" />
-
-                                {/* Spinner shown while next page loads */}
-                                {isLoadingMore && (
-                                    <div
-                                        className="flex justify-center py-8"
-                                        role="status"
-                                        aria-label="Loading more products"
-                                    >
-                                        <div className="w-8 h-8 border-2 border-gray-900 border-t-transparent rounded-full animate-spin" />
-                                    </div>
+                                {/* Sentinel — observed to trigger loading more */}
+                                {hasMore && (
+                                    <div ref={sentinelRef} aria-hidden="true" className="h-4 mt-8" />
                                 )}
 
-                                {/* End of results message */}
-                                {!hasMore && !isLoadingMore && (
+                                {!hasMore && (
                                     <p className="text-center text-sm text-gray-400 py-8">
-                                        All {totalCount} products loaded
+                                        All {products.length} products shown
                                     </p>
                                 )}
                             </>

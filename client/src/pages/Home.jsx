@@ -2,17 +2,19 @@ import Hero from '../components/Hero';
 import ProductCard from '../components/ProductCard';
 import { useEffect } from 'react';
 import { useDispatch, useSelector } from 'react-redux';
-import { fetchTrending } from '../store/productSlice';
+import { fetchAllProducts } from '../store/productSlice';
 import useTranslation from '../hooks/useTranslation';
 
 const Home = () => {
     const dispatch = useDispatch();
-    const { trendingProducts, trendingLoading } = useSelector((state) => state.product);
+    const { allProducts, isLoading } = useSelector((state) => state.product);
     const { t } = useTranslation();
 
     useEffect(() => {
-        dispatch(fetchTrending());
+        dispatch(fetchAllProducts());
     }, [dispatch]);
+
+    const trendingProducts = allProducts.filter(p => p.isTrending).slice(0, 4);
 
     return (
         <div>
@@ -27,12 +29,9 @@ const Home = () => {
                         <p className="text-gray-500 max-w-2xl mx-auto">{t.trendingDesc}</p>
                     </div>
 
-                    {trendingLoading ? (
-                        <div
-                            className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-8"
-                            aria-busy="true"
-                            aria-label="Loading trending products"
-                        >
+                    {isLoading ? (
+                        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-8"
+                            aria-busy="true" aria-label="Loading trending products">
                             {[1, 2, 3, 4].map((i) => (
                                 <div key={i} className="animate-pulse" aria-hidden="true">
                                     <div className="bg-gray-200 aspect-[3/4] mb-4 rounded" />
@@ -70,9 +69,7 @@ const Home = () => {
                             <p className="text-gray-600 mb-8 leading-relaxed">
                                 {t.artOfFashionDesc}
                             </p>
-                            <button className="btn-primary">
-                                {t.viewLookbook}
-                            </button>
+                            <button className="btn-primary">{t.viewLookbook}</button>
                         </div>
                     </div>
                 </div>
