@@ -1,8 +1,9 @@
-import { useState, useEffect, useRef } from 'react';
+import { useEffect, useRef } from 'react';
 import { motion } from 'framer-motion';
 import { X, ShoppingBag } from 'lucide-react';
 
-const DURATION = 3000; // ms before auto-dismiss
+const DURATION = 3500; // ms before auto-dismiss
+const TICK = 50;       // interval resolution
 
 // Animated SVG checkmark
 const Checkmark = () => (
@@ -13,24 +14,17 @@ const Checkmark = () => (
         fill="none"
         aria-hidden="true"
     >
-        {/* Circle */}
         <motion.circle
-            cx="10"
-            cy="10"
-            r="9"
-            stroke="#22c55e"
-            strokeWidth="1.5"
+            cx="10" cy="10" r="9"
+            stroke="#22c55e" strokeWidth="1.5"
             initial={{ pathLength: 0, opacity: 0 }}
             animate={{ pathLength: 1, opacity: 1 }}
             transition={{ duration: 0.4, ease: 'easeOut' }}
         />
-        {/* Tick */}
         <motion.path
             d="M6 10l3 3 5-5"
-            stroke="#22c55e"
-            strokeWidth="1.8"
-            strokeLinecap="round"
-            strokeLinejoin="round"
+            stroke="#22c55e" strokeWidth="1.8"
+            strokeLinecap="round" strokeLinejoin="round"
             initial={{ pathLength: 0 }}
             animate={{ pathLength: 1 }}
             transition={{ duration: 0.3, ease: 'easeOut', delay: 0.25 }}
@@ -39,55 +33,51 @@ const Checkmark = () => (
 );
 
 const CartToast = ({ product, onDismiss }) => {
-    const [paused, setPaused] = useState(false);
-    const progressRef = useRef(null);
-
-    // CSS-animation-based progress bar — pauseable via animationPlayState
-    useEffect(() => {
-        const el = progressRef.current;
-        if (!el) return;
-        // Start the shrink animation
-        el.style.animation = `toast-progress ${DURATION}ms linear forwards`;
-        el.style.animationPlayState = 'running';
-    }, []);
+    const barRef    = useRef(null);
+    const pausedRef = useRef(false);
+    const elapsed   = useRef(0);
 
     useEffect(() => {
-        if (!progressRef.current) return;
-        progressRef.current.style.animationPlayState = paused ? 'paused' : 'running';
-    }, [paused]);
+        const interval = setInterval(() => {
+            if (pausedRef.current) return;
+            elapsed.current += TICK;
+            const pct = Math.max(0, 100 - (elapsed.current / DURATION) * 100);
+            if (barRef.current) barRef.current.style.width = `${pct}%`;
+            if (elapsed.current >= DURATION) {
+                clearInterval(interval);
+                onDismiss();
+            }
+        }, TICK);
+        return () => clearInterval(interval);
+    // onDismiss is stable (useCallback in context), safe to list
+    }, [onDismiss]);
 
-    // Auto-dismiss when animation ends
-    const handleAnimationEnd = () => onDismiss();
-
-    const imgSrc = product.images?.[0];
-    const size = product.sizes?.[0];
-    const color = product.colors?.[0]?.name;
+    const imgSrc   = product.images?.[0];
+    const size     = product.sizes?.[0];
+    const color    = product.colors?.[0]?.name;
     const colorHex = product.colors?.[0]?.hex;
 
     return (
         <motion.div
             layout
             initial={{ opacity: 0, x: 80, scale: 0.92 }}
-            animate={{ opacity: 1, x: 0, scale: 1 }}
+            animate={{ opacity: 1, x: 0,  scale: 1 }}
             exit={{ opacity: 0, x: 80, scale: 0.88, transition: { duration: 0.2 } }}
             transition={{ type: 'spring', stiffness: 480, damping: 38 }}
-            className="pointer-events-auto w-[320px] bg-white rounded-2xl shadow-[0_8px_32px_rgba(0,0,0,0.12)] border border-gray-100 overflow-hidden"
-            onMouseEnter={() => setPaused(true)}
-            onMouseLeave={() => setPaused(false)}
+            className="pointer-events-auto w-[320px] bg-white rounded-2xl shadow-[0_8px_32px_rgba(0,0,0,0.14)] border border-gray-100 overflow-hidden"
+            onMouseEnter={() => { pausedRef.current = true; }}
+            onMouseLeave={() => { pausedRef.current = false; }}
             role="status"
+            aria-label={`${product.name} added to cart`}
         >
-            {/* Top accent line */}
+            {/* Top accent stripe */}
             <div className="h-0.5 bg-gradient-to-r from-green-400 via-emerald-500 to-teal-400" />
 
             <div className="flex items-center gap-3 px-4 py-3">
-                {/* Product thumbnail */}
-                <div className="relative flex-shrink-0 w-14 h-14 rounded-xl overflow-hidden bg-gray-100 shadow-sm">
+                {/* Thumbnail */}
+                <div className="flex-shrink-0 w-14 h-14 rounded-xl overflow-hidden bg-gray-100 shadow-sm">
                     {imgSrc ? (
-                        <img
-                            src={imgSrc}
-                            alt={product.name}
-                            className="w-full h-full object-cover"
-                        />
+                        <img src={imgSrc} alt={product.name} className="w-full h-full object-cover" />
                     ) : (
                         <div className="w-full h-full flex items-center justify-center">
                             <ShoppingBag size={20} className="text-gray-300" />
@@ -95,7 +85,7 @@ const CartToast = ({ product, onDismiss }) => {
                     )}
                 </div>
 
-                {/* Content */}
+                {/* Text */}
                 <div className="flex-1 min-w-0">
                     <div className="flex items-center gap-1.5 mb-0.5">
                         <Checkmark />
@@ -128,7 +118,7 @@ const CartToast = ({ product, onDismiss }) => {
                     )}
                 </div>
 
-                {/* Dismiss button */}
+                {/* Dismiss */}
                 <button
                     onClick={onDismiss}
                     className="flex-shrink-0 p-1 rounded-lg text-gray-300 hover:text-gray-600 hover:bg-gray-100 transition-colors"
@@ -138,23 +128,14 @@ const CartToast = ({ product, onDismiss }) => {
                 </button>
             </div>
 
-            {/* Progress bar */}
+            {/* Progress bar — width driven by setInterval via ref */}
             <div className="h-0.5 bg-gray-100">
                 <div
-                    ref={progressRef}
-                    className="h-full bg-gradient-to-r from-green-400 to-emerald-500 origin-left"
-                    onAnimationEnd={handleAnimationEnd}
-                    style={{ willChange: 'transform' }}
+                    ref={barRef}
+                    className="h-full bg-gradient-to-r from-green-400 to-emerald-500"
+                    style={{ width: '100%' }}
                 />
             </div>
-
-            {/* Keyframe injection */}
-            <style>{`
-                @keyframes toast-progress {
-                    from { transform: scaleX(1); }
-                    to   { transform: scaleX(0); }
-                }
-            `}</style>
         </motion.div>
     );
 };
