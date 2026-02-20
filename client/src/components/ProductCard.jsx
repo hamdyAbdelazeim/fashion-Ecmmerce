@@ -3,6 +3,7 @@ import { motion } from 'framer-motion';
 import { Link } from 'react-router-dom';
 import { useDispatch } from 'react-redux';
 import { addToCart } from '../store/cartSlice';
+import { useToast } from '../context/ToastContext';
 
 // Optimize Unsplash URLs for card thumbnails (smaller, faster)
 const optimizeImage = (url) => {
@@ -20,6 +21,7 @@ const FALLBACK = 'https://images.unsplash.com/photo-1515886657613-9f3515b0c78f?a
 
 const ProductCard = ({ product, index }) => {
     const dispatch = useDispatch();
+    const { addToast } = useToast();
     const [loaded, setLoaded] = useState(false);
 
     const imgSrc = optimizeImage(product.images?.[0]);
@@ -33,6 +35,7 @@ const ProductCard = ({ product, index }) => {
             selectedColor: product.colors?.[0],
             qty: 1,
         }));
+        addToast(product);
     };
 
     return (
