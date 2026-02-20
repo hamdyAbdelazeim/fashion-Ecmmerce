@@ -2,9 +2,14 @@ const Product = require('../models/Product');
 
 exports.getProducts = async (req, res) => {
     try {
-        const { category, department, sizes, colors, priceRange, page = 1, limit = 12 } = req.query;
-        let query = {};
+        const { category, department, sizes, colors, priceRange } = req.query;
+        // page is only present when the new frontend explicitly sends it
+        const paginated = req.query.page !== undefined;
+        const pageNum = Math.max(1, parseInt(req.query.page) || 1);
+        const limitNum = Math.min(48, parseInt(req.query.limit) || 12);
+        const skip = (pageNum - 1) * limitNum;
 
+        let query = {};
         if (category) query.category = category;
         if (department) query.department = department;
         if (sizes) query.sizes = { $in: sizes.split(',') };
@@ -14,22 +19,24 @@ exports.getProducts = async (req, res) => {
             query.price = { $gte: Number(min), $lte: Number(max) };
         }
 
-        const pageNum = Math.max(1, parseInt(page) || 1);
-        const limitNum = Math.min(48, parseInt(limit) || 12);
-        const skip = (pageNum - 1) * limitNum;
+        if (paginated) {
+            // New frontend: return paginated envelope
+            const [products, totalCount] = await Promise.all([
+                Product.find(query).skip(skip).limit(limitNum).lean(),
+                Product.countDocuments(query),
+            ]);
+            return res.json({
+                products,
+                page: pageNum,
+                totalCount,
+                totalPages: Math.ceil(totalCount / limitNum),
+                hasMore: skip + products.length < totalCount,
+            });
+        }
 
-        const [products, totalCount] = await Promise.all([
-            Product.find(query).skip(skip).limit(limitNum).lean(),
-            Product.countDocuments(query),
-        ]);
-
-        res.json({
-            products,
-            page: pageNum,
-            totalCount,
-            totalPages: Math.ceil(totalCount / limitNum),
-            hasMore: skip + products.length < totalCount,
-        });
+        // Legacy / backward-compat: return plain array (no page param sent)
+        const products = await Product.find(query).lean();
+        res.json(products);
     } catch (error) {
         res.status(500).json({ message: error.message });
     }
