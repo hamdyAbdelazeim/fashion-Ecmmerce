@@ -75,8 +75,9 @@ export const fetchTrending = createAsyncThunk(
         const cached = readCache(key);
         if (cached) return cached;
         try {
-            const { data } = await axios.get(`${API_URL}?limit=48`);
-            const trending = data.products.filter(p => p.isTrending).slice(0, 4);
+            // ?page=1 ensures we get the paginated envelope { products, ... }
+            const { data } = await axios.get(`${API_URL}?page=1&limit=48`);
+            const trending = (data.products || []).filter(p => p.isTrending).slice(0, 4);
             writeCache(key, trending);
             return trending;
         } catch (error) {
@@ -93,9 +94,10 @@ export const fetchAllProducts = createAsyncThunk(
         const cached = readCache(key);
         if (cached) return cached;
         try {
-            const { data } = await axios.get(`${API_URL}?limit=48`);
-            writeCache(key, data.products);
-            return data.products;
+            const { data } = await axios.get(`${API_URL}?page=1&limit=48`);
+            const products = data.products || [];
+            writeCache(key, products);
+            return products;
         } catch (error) {
             return thunkAPI.rejectWithValue(error.response?.data?.message || error.message);
         }
@@ -257,18 +259,21 @@ export const productSlice = createSlice({
                 else state.isLoadingMore = true;
             })
             .addCase(fetchProductsPage.fulfilled, (state, action) => {
-                const { products, hasMore, totalCount, page } = action.payload;
+                const { products = [], hasMore, totalCount, page } = action.payload || {};
                 state.isLoading = false;
                 state.isLoadingMore = false;
                 state.isSuccess = true;
                 state.hasMore = hasMore ?? false;
                 state.totalCount = totalCount ?? 0;
-                state.currentPage = page;
+                state.currentPage = page ?? 1;
                 if (page === 1) {
-                    state.products = products;
+                    state.products = Array.isArray(products) ? products : [];
                 } else {
                     const ids = new Set(state.products.map(p => p._id));
-                    state.products = [...state.products, ...products.filter(p => !ids.has(p._id))];
+                    state.products = [
+                        ...state.products,
+                        ...(Array.isArray(products) ? products : []).filter(p => !ids.has(p._id)),
+                    ];
                 }
             })
             .addCase(fetchProductsPage.rejected, (state, action) => {
