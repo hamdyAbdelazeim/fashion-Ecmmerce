@@ -10,53 +10,92 @@ const getAuthConfig = (thunkAPI) => {
     return { headers: { Authorization: `Bearer ${token}` } };
 };
 
-// ── localStorage cache (30-minute TTL) ────────────────────────────────────
-const CACHE_KEY = 'fec_products_v1';
-const CACHE_TTL = 30 * 60 * 1000;
+// ── Per-page cache (key = filter params + page, TTL = 15 min) ─────────────
+const CACHE_TTL = 15 * 60 * 1000;
 
-const getCached = () => {
-    try {
-        const c = JSON.parse(localStorage.getItem(CACHE_KEY));
-        if (c && Date.now() - c.ts < CACHE_TTL) return c.data;
-    } catch {}
-    return null;
+const cacheKey = (filters, page) => {
+    const { department = '', category = '', sizes = [], colors = [], priceRange = '' } = filters || {};
+    return `fec|d=${department}|c=${category}|s=${[...sizes].sort().join(',')}|col=${[...colors].sort().join(',')}|p=${priceRange}|pg=${page}`;
 };
 
-const setCache = (data) => {
+const readCache = (key) => {
     try {
-        localStorage.setItem(CACHE_KEY, JSON.stringify({ data, ts: Date.now() }));
-    } catch {}
+        const raw = sessionStorage.getItem(key);
+        if (!raw) return null;
+        const entry = JSON.parse(raw);
+        if (Date.now() - entry.ts > CACHE_TTL) { sessionStorage.removeItem(key); return null; }
+        return entry.data;
+    } catch { return null; }
 };
 
-// ── Fetch ALL products once — uses cache if fresh ──────────────────────────
-export const fetchAllProducts = createAsyncThunk(
-    'products/fetchAll',
-    async (_, thunkAPI) => {
+const writeCache = (key, data) => {
+    try { sessionStorage.setItem(key, JSON.stringify({ data, ts: Date.now() })); } catch {}
+};
+
+// ── Persist filter preferences to localStorage (survives page close) ───────
+const FILTER_PREF_KEY = 'fec_filter_prefs';
+export const saveFilterPrefs = (filters) => {
+    try { localStorage.setItem(FILTER_PREF_KEY, JSON.stringify(filters)); } catch {}
+};
+export const loadFilterPrefs = () => {
+    try { return JSON.parse(localStorage.getItem(FILTER_PREF_KEY)) || {}; } catch { return {}; }
+};
+
+// ── Fetch a page of products (cached per filter+page key) ──────────────────
+export const fetchProductsPage = createAsyncThunk(
+    'products/fetchPage',
+    async ({ filters = {}, page = 1 } = {}, thunkAPI) => {
+        const key = cacheKey(filters, page);
+        const cached = readCache(key);
+        if (cached) return { ...cached, page, fromCache: true };
+
         try {
-            const cached = getCached();
-            if (cached) return cached;
-            const { data } = await axios.get(API_URL);
-            setCache(data);
-            return data;
+            const { department, category, sizes, colors, priceRange } = filters;
+            const params = new URLSearchParams({ page, limit: 12 });
+            if (department) params.append('department', department);
+            if (category) params.append('category', category);
+            if (sizes?.length) params.append('sizes', sizes.join(','));
+            if (colors?.length) params.append('colors', colors.join(','));
+            if (priceRange) params.append('priceRange', priceRange);
+
+            const { data } = await axios.get(`${API_URL}?${params}`);
+            writeCache(key, data);
+            return { ...data, page, fromCache: false };
         } catch (error) {
             return thunkAPI.rejectWithValue(error.response?.data?.message || error.message);
         }
     }
 );
 
-// ── Public (kept for backwards-compat) ────────────────────────────────────
-export const fetchProducts = createAsyncThunk(
-    'products/getAll',
-    async ({ category, department, sizes, colors, priceRange } = {}, thunkAPI) => {
+// ── Trending products for Home page ────────────────────────────────────────
+export const fetchTrending = createAsyncThunk(
+    'products/fetchTrending',
+    async (_, thunkAPI) => {
+        const key = 'fec|trending';
+        const cached = readCache(key);
+        if (cached) return cached;
         try {
-            let query = '?';
-            if (category) query += `category=${category}&`;
-            if (department) query += `department=${department}&`;
-            if (sizes && sizes.length > 0) query += `sizes=${sizes.join(',')}&`;
-            if (colors && colors.length > 0) query += `colors=${colors.join(',')}&`;
-            if (priceRange) query += `priceRange=${priceRange}&`;
-            const { data } = await axios.get(API_URL + query);
-            return data;
+            const { data } = await axios.get(`${API_URL}?limit=48`);
+            const trending = data.products.filter(p => p.isTrending).slice(0, 4);
+            writeCache(key, trending);
+            return trending;
+        } catch (error) {
+            return thunkAPI.rejectWithValue(error.response?.data?.message || error.message);
+        }
+    }
+);
+
+// ── Legacy: kept so any remaining references don't break ───────────────────
+export const fetchAllProducts = createAsyncThunk(
+    'products/fetchAll',
+    async (_, thunkAPI) => {
+        const key = 'fec|all';
+        const cached = readCache(key);
+        if (cached) return cached;
+        try {
+            const { data } = await axios.get(`${API_URL}?limit=48`);
+            writeCache(key, data.products);
+            return data.products;
         } catch (error) {
             return thunkAPI.rejectWithValue(error.response?.data?.message || error.message);
         }
@@ -159,17 +198,32 @@ export const adminFetchStats = createAsyncThunk('products/adminGetStats', async 
 
 // ── Slice ───────────────────────────────────────────────────────────────────
 const initialState = {
+    // Shop page — paginated, infinite-scroll
     products: [],
+    hasMore: true,
+    currentPage: 0,
+    totalCount: 0,
+    currentFilters: {},
+    isLoading: false,
+    isLoadingMore: false,
+
+    // Home page
+    trendingProducts: [],
+    trendingLoading: false,
+
+    // Legacy compat
     allProducts: [],
+
+    // Admin
     adminProducts: [],
     adminUsers: [],
     adminOrders: [],
     adminStats: null,
-    isError: false,
-    isSuccess: false,
-    isLoading: false,
     adminLoading: false,
     adminError: null,
+
+    isError: false,
+    isSuccess: false,
     message: '',
 };
 
@@ -179,46 +233,72 @@ export const productSlice = createSlice({
     reducers: {
         reset: (state) => {
             state.isLoading = false;
+            state.isLoadingMore = false;
             state.isSuccess = false;
             state.isError = false;
             state.message = '';
             state.adminError = null;
         },
-        // Client-side filtering — zero API calls
-        filterProducts: (state, action) => {
-            const { category, department, sizes, colors, priceRange } = action.payload || {};
-            let out = state.allProducts;
-            if (department) out = out.filter(p => p.department === department);
-            if (category) out = out.filter(p => p.category === category);
-            if (sizes && sizes.length > 0) out = out.filter(p => p.sizes.some(s => sizes.includes(s)));
-            if (colors && colors.length > 0) out = out.filter(p => p.colors.some(c => colors.includes(c.name)));
-            if (priceRange) {
-                const [min, max] = priceRange.split('-').map(Number);
-                out = out.filter(p => p.price >= min && p.price <= max);
-            }
-            state.products = out;
+        // Called when filters change: wipe the display list so page 1 is fetched fresh
+        resetProducts: (state, action) => {
+            state.products = [];
+            state.hasMore = true;
+            state.currentPage = 0;
+            state.totalCount = 0;
+            state.currentFilters = action.payload || {};
         },
     },
     extraReducers: (builder) => {
         builder
-            // fetchAllProducts — single fetch, cached
+            // ── fetchProductsPage ──────────────────────────────────────────
+            .addCase(fetchProductsPage.pending, (state, action) => {
+                const isFirst = (action.meta.arg?.page ?? 1) === 1;
+                if (isFirst) state.isLoading = true;
+                else state.isLoadingMore = true;
+            })
+            .addCase(fetchProductsPage.fulfilled, (state, action) => {
+                const { products, hasMore, totalCount, page } = action.payload;
+                state.isLoading = false;
+                state.isLoadingMore = false;
+                state.isSuccess = true;
+                state.hasMore = hasMore ?? false;
+                state.totalCount = totalCount ?? 0;
+                state.currentPage = page;
+                if (page === 1) {
+                    state.products = products;
+                } else {
+                    const ids = new Set(state.products.map(p => p._id));
+                    state.products = [...state.products, ...products.filter(p => !ids.has(p._id))];
+                }
+            })
+            .addCase(fetchProductsPage.rejected, (state, action) => {
+                state.isLoading = false;
+                state.isLoadingMore = false;
+                state.isError = true;
+                state.message = action.payload;
+            })
+
+            // ── fetchTrending ──────────────────────────────────────────────
+            .addCase(fetchTrending.pending, (state) => { state.trendingLoading = true; })
+            .addCase(fetchTrending.fulfilled, (state, action) => {
+                state.trendingLoading = false;
+                state.trendingProducts = action.payload;
+            })
+            .addCase(fetchTrending.rejected, (state) => { state.trendingLoading = false; })
+
+            // ── fetchAllProducts (legacy) ──────────────────────────────────
             .addCase(fetchAllProducts.pending, (state) => { state.isLoading = true; })
             .addCase(fetchAllProducts.fulfilled, (state, action) => {
                 state.isLoading = false;
-                state.isSuccess = true;
                 state.allProducts = action.payload;
-                state.products = action.payload;
             })
             .addCase(fetchAllProducts.rejected, (state, action) => {
                 state.isLoading = false;
                 state.isError = true;
                 state.message = action.payload;
             })
-            // fetchProducts (legacy)
-            .addCase(fetchProducts.pending, (state) => { state.isLoading = true; })
-            .addCase(fetchProducts.fulfilled, (state, action) => { state.isLoading = false; state.isSuccess = true; state.products = action.payload; })
-            .addCase(fetchProducts.rejected, (state, action) => { state.isLoading = false; state.isError = true; state.message = action.payload; })
-            // Admin products
+
+            // ── Admin products ─────────────────────────────────────────────
             .addCase(adminFetchProducts.pending, (state) => { state.adminLoading = true; })
             .addCase(adminFetchProducts.fulfilled, (state, action) => { state.adminLoading = false; state.adminProducts = action.payload; })
             .addCase(adminFetchProducts.rejected, (state, action) => { state.adminLoading = false; state.adminError = action.payload; })
@@ -230,7 +310,8 @@ export const productSlice = createSlice({
             .addCase(adminDeleteProduct.fulfilled, (state, action) => {
                 state.adminProducts = state.adminProducts.filter(p => p._id !== action.payload);
             })
-            // Admin users
+
+            // ── Admin users ────────────────────────────────────────────────
             .addCase(adminFetchUsers.pending, (state) => { state.adminLoading = true; })
             .addCase(adminFetchUsers.fulfilled, (state, action) => { state.adminLoading = false; state.adminUsers = action.payload; })
             .addCase(adminUpdateUserRole.fulfilled, (state, action) => {
@@ -240,17 +321,19 @@ export const productSlice = createSlice({
             .addCase(adminDeleteUser.fulfilled, (state, action) => {
                 state.adminUsers = state.adminUsers.filter(u => u._id !== action.payload);
             })
-            // Admin orders
+
+            // ── Admin orders ───────────────────────────────────────────────
             .addCase(adminFetchOrders.pending, (state) => { state.adminLoading = true; })
             .addCase(adminFetchOrders.fulfilled, (state, action) => { state.adminLoading = false; state.adminOrders = action.payload; })
             .addCase(adminUpdateOrderStatus.fulfilled, (state, action) => {
                 const idx = state.adminOrders.findIndex(o => o._id === action.payload._id);
                 if (idx !== -1) state.adminOrders[idx] = action.payload;
             })
-            // Admin stats
+
+            // ── Admin stats ────────────────────────────────────────────────
             .addCase(adminFetchStats.fulfilled, (state, action) => { state.adminStats = action.payload; });
     },
 });
 
-export const { reset, filterProducts } = productSlice.actions;
+export const { reset, resetProducts } = productSlice.actions;
 export default productSlice.reducer;

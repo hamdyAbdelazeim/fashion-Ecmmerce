@@ -2,38 +2,34 @@ const Product = require('../models/Product');
 
 exports.getProducts = async (req, res) => {
     try {
-        const { category, department, sizes, colors, priceRange } = req.query;
+        const { category, department, sizes, colors, priceRange, page = 1, limit = 12 } = req.query;
         let query = {};
 
         if (category) query.category = category;
         if (department) query.department = department;
-        if (sizes) {
-            const sizeArray = sizes.split(',');
-            query.sizes = { $in: sizeArray };
-        }
-        if (colors) {
-            const colorArray = colors.split(',');
-            // Check if color is in the colors array of objects (specifically checking 'name' property)
-            query['colors.name'] = { $in: colorArray.map(c => new RegExp(c, 'i')) }; // Case insensitive match
-        }
-
+        if (sizes) query.sizes = { $in: sizes.split(',') };
+        if (colors) query['colors.name'] = { $in: colors.split(',').map(c => new RegExp(c, 'i')) };
         if (priceRange) {
             const [min, max] = priceRange.split('-');
             query.price = { $gte: Number(min), $lte: Number(max) };
         }
 
-        let products = [];
-        try {
-            products = await Product.find(query);
-        } catch (dbError) {
-            console.warn('Database error, using in-memory fallback:', dbError.message);
-        }
+        const pageNum = Math.max(1, parseInt(page) || 1);
+        const limitNum = Math.min(48, parseInt(limit) || 12);
+        const skip = (pageNum - 1) * limitNum;
 
-        if (!products || products.length === 0) {
-            products = getInMemoryProducts(query);
-        }
+        const [products, totalCount] = await Promise.all([
+            Product.find(query).skip(skip).limit(limitNum).lean(),
+            Product.countDocuments(query),
+        ]);
 
-        res.json(products);
+        res.json({
+            products,
+            page: pageNum,
+            totalCount,
+            totalPages: Math.ceil(totalCount / limitNum),
+            hasMore: skip + products.length < totalCount,
+        });
     } catch (error) {
         res.status(500).json({ message: error.message });
     }

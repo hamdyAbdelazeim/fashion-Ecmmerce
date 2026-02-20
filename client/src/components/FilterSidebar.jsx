@@ -2,14 +2,14 @@ import { motion } from 'framer-motion';
 import { useState, useEffect } from 'react';
 import { useSearchParams } from 'react-router-dom';
 
-const FilterSidebar = ({ isOpen, onClose, onFilterChange }) => {
+const FilterSidebar = ({ isOpen, onClose, onFilterChange, initialFilters = {} }) => {
     const [searchParams, setSearchParams] = useSearchParams();
     const [filters, setFilters] = useState({
-        category: searchParams.get('category') || '',
-        department: searchParams.get('department') || '',
-        sizes: searchParams.get('sizes') ? searchParams.get('sizes').split(',') : [],
-        colors: searchParams.get('colors') ? searchParams.get('colors').split(',') : [],
-        priceRange: searchParams.get('priceRange') || '',
+        category: initialFilters.category || searchParams.get('category') || '',
+        department: initialFilters.department || searchParams.get('department') || '',
+        sizes: initialFilters.sizes || (searchParams.get('sizes') ? searchParams.get('sizes').split(',') : []),
+        colors: initialFilters.colors || (searchParams.get('colors') ? searchParams.get('colors').split(',') : []),
+        priceRange: initialFilters.priceRange || searchParams.get('priceRange') || '',
     });
 
     const categories = ['Clothing', 'Shoes'];
@@ -49,10 +49,13 @@ const FilterSidebar = ({ isOpen, onClose, onFilterChange }) => {
     };
 
     return (
-        <div className={`fixed inset-y-0 left-0 w-64 bg-white shadow-lg transform ${isOpen ? 'translate-x-0' : '-translate-x-full'} transition-transform duration-300 ease-in-out z-40 overflow-y-auto pt-20 pb-10 px-6 lg:translate-x-0 lg:static lg:h-auto lg:shadow-none lg:pt-0 lg:block`}>
+        <aside
+            className={`fixed inset-y-0 left-0 w-64 bg-white shadow-lg transform ${isOpen ? 'translate-x-0' : '-translate-x-full'} transition-transform duration-300 ease-in-out z-40 overflow-y-auto pt-20 pb-10 px-6 lg:translate-x-0 lg:static lg:h-auto lg:shadow-none lg:pt-0 lg:block`}
+            aria-label="Product filters"
+        >
             <div className="flex justify-between items-center lg:hidden mb-6">
                 <h3 className="text-xl font-bold font-serif">Filters</h3>
-                <button onClick={onClose} className="text-gray-500 hover:text-black">Close</button>
+                <button onClick={onClose} className="text-gray-500 hover:text-black" aria-label="Close filters">Close</button>
             </div>
 
             {/* Departments */}
@@ -119,7 +122,8 @@ const FilterSidebar = ({ isOpen, onClose, onFilterChange }) => {
                             onClick={() => handleCheckboxChange('colors', color)}
                             className={`w-8 h-8 rounded-full border border-gray-200 flex items-center justify-center ${filters.colors.includes(color) ? 'ring-2 ring-offset-2 ring-black' : ''}`}
                             style={{ backgroundColor: color.toLowerCase() }}
-                            title={color}
+                            aria-label={`${color}${filters.colors.includes(color) ? ' (selected)' : ''}`}
+                            aria-pressed={filters.colors.includes(color)}
                         />
                     ))}
                 </div>
@@ -147,10 +151,11 @@ const FilterSidebar = ({ isOpen, onClose, onFilterChange }) => {
             <button
                 onClick={() => setFilters({ category: '', department: '', sizes: [], colors: [], priceRange: '' })}
                 className="w-full py-2 text-sm underline hover:text-accent"
+                aria-label="Clear all active filters"
             >
                 Clear All Filters
             </button>
-        </div>
+        </aside>
     );
 };
 
