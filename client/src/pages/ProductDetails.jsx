@@ -1,14 +1,15 @@
 import { useEffect, useState } from 'react';
 import { useParams } from 'react-router-dom';
-import { useDispatch, useSelector } from 'react-redux';
-import { fetchProducts } from '../store/productSlice';
+import { useDispatch } from 'react-redux';
 import { addToCart } from '../store/cartSlice';
+import { useToast } from '../context/ToastContext';
 import { motion } from 'framer-motion';
 import axios from 'axios';
 
 const ProductDetails = () => {
     const { id } = useParams();
     const dispatch = useDispatch();
+    const { addToast } = useToast();
     const [product, setProduct] = useState(null);
     const [selectedSize, setSelectedSize] = useState('');
     const [selectedColor, setSelectedColor] = useState(null);
@@ -43,8 +44,7 @@ const ProductDetails = () => {
             selectedColor,
             qty: quantity
         }));
-        // Open cart
-        // dispatch(toggleCart()); // Optional
+        addToast(product);
     };
 
     if (loading) {
