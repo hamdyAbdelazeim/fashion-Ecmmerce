@@ -37,7 +37,7 @@ exports.createCheckoutSession = async (req, res) => {
             },
             metadata: {
                 userId: req.body.userId,
-                cartItems: JSON.stringify(cartItems.map(item => ({ id: item._id, qty: item.qty, size: item.selectedSize, color: item.selectedColor.name })))
+                cartItems: JSON.stringify(cartItems.map(item => ({ id: item._id, qty: item.qty, size: item.selectedSize, color: item.selectedColor?.name || '' })))
             }
         });
 

@@ -3,8 +3,7 @@ import { useSelector } from 'react-redux';
 import { loadStripe } from '@stripe/stripe-js';
 import axios from 'axios';
 
-// Replace with your publishable key
-const stripePromise = loadStripe('pk_test_TYooMQauvdEDq54NiTphI7jx');
+const stripePromise = loadStripe(import.meta.env.VITE_STRIPE_PUBLISHABLE_KEY || '');
 
 const Checkout = () => {
     const { cartItems } = useSelector((state) => state.cart);
@@ -100,13 +99,13 @@ const Checkout = () => {
                     <h2 className="text-2xl font-bold mb-6">Order Summary</h2>
                     <div className="space-y-4 max-h-[400px] overflow-y-auto pr-2">
                         {cartItems.map((item) => (
-                            <div key={`${item._id}-${item.selectedSize}-${item.selectedColor.name}`} className="flex gap-4 py-4 border-b last:border-0">
+                            <div key={`${item._id}-${item.selectedSize}-${item.selectedColor?.name}`} className="flex gap-4 py-4 border-b last:border-0">
                                 <div className="w-20 h-20 bg-gray-100 rounded overflow-hidden flex-shrink-0">
-                                    <img src={item.images[0]} alt={item.name} className="w-full h-full object-cover" />
+                                    <img src={item.images?.[0]} alt={item.name} className="w-full h-full object-cover" />
                                 </div>
                                 <div className="flex-1">
                                     <h3 className="font-medium">{item.name}</h3>
-                                    <p className="text-sm text-gray-500">{item.selectedColor.name} | {item.selectedSize}</p>
+                                    <p className="text-sm text-gray-500">{item.selectedColor?.name} | {item.selectedSize}</p>
                                     <div className="flex justify-between mt-2">
                                         <span className="text-sm">Qty: {item.qty}</span>
                                         <span className="font-medium">${(item.price * item.qty).toFixed(2)}</span>
