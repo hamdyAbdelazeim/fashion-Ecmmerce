@@ -1,6 +1,6 @@
 import { useState, useEffect } from 'react';
 import { Link, useLocation } from 'react-router-dom';
-import { ShoppingBag, User, Menu, X, Search, Globe, LogOut } from 'lucide-react';
+import { ShoppingBag, User, Menu, X, Search, LogOut } from 'lucide-react';
 import { useSelector, useDispatch } from 'react-redux';
 import { toggleCart } from '../store/cartSlice';
 import { logout } from '../store/authSlice';
@@ -30,22 +30,28 @@ const Navbar = () => {
         window.location.href = '/login';
     };
 
-    // Language toggle pill — reused in desktop and mobile
+    const LANGS = [
+        { code: 'EN', flag: '🇬🇧' },
+        { code: 'DE', flag: '🇩🇪' },
+    ];
+
+    // Language toggle — flag emoji buttons, reused in desktop and mobile
     const LangToggle = () => (
-        <div className={`flex items-center gap-1 bg-white/10 backdrop-blur-sm border border-white/20 rounded-lg p-0.5 ${scrolled || isOpen ? 'border-gray-200 bg-gray-50' : ''}`}>
-            <Globe size={12} className="text-gray-400 ml-1 flex-shrink-0" />
-            {['EN', 'DE'].map((l) => (
+        <div className={`flex items-center gap-0.5 rounded-xl p-1 border transition-colors duration-200 ${scrolled || isOpen ? 'bg-gray-50 border-gray-200' : 'bg-white/10 border-white/20 backdrop-blur-sm'}`}>
+            {LANGS.map(({ code, flag }) => (
                 <button
-                    key={l}
-                    onClick={() => changeLanguage(l)}
-                    aria-pressed={lang === l}
-                    className={`px-2 py-1 rounded-md text-[11px] font-bold tracking-wider transition-all duration-200 ${
-                        lang === l
-                            ? 'bg-black text-white'
-                            : 'text-gray-500 hover:text-gray-800'
+                    key={code}
+                    onClick={() => changeLanguage(code)}
+                    aria-pressed={lang === code}
+                    title={code === 'EN' ? 'English' : 'Deutsch'}
+                    className={`flex items-center gap-1.5 px-2 py-1 rounded-lg text-[11px] font-bold tracking-wider transition-all duration-200 ${
+                        lang === code
+                            ? 'bg-white shadow text-gray-900 scale-105'
+                            : 'text-gray-400 hover:text-gray-700 hover:bg-white/60'
                     }`}
                 >
-                    {l}
+                    <span className="text-base leading-none">{flag}</span>
+                    <span>{code}</span>
                 </button>
             ))}
         </div>
@@ -192,18 +198,21 @@ const Navbar = () => {
                             {/* Language switcher */}
                             <div className="border-t border-gray-100 pt-3 mt-2 px-3">
                                 <p className="text-[10px] font-bold text-gray-400 uppercase tracking-widest mb-2">Language</p>
-                                <div className="flex items-center gap-2 bg-gray-50 border border-gray-200 rounded-xl p-1 w-fit">
-                                    <Globe size={13} className="text-gray-400 ml-1.5" />
-                                    {['EN', 'DE'].map((l) => (
+                                <div className="flex items-center gap-1.5 bg-gray-100 rounded-xl p-1 w-fit">
+                                    {LANGS.map(({ code, flag }) => (
                                         <button
-                                            key={l}
-                                            onClick={() => changeLanguage(l)}
-                                            aria-pressed={lang === l}
-                                            className={`px-3 py-1.5 rounded-lg text-xs font-bold tracking-wider transition-all duration-200 ${
-                                                lang === l ? 'bg-black text-white' : 'text-gray-500 hover:text-gray-800'
+                                            key={code}
+                                            onClick={() => changeLanguage(code)}
+                                            aria-pressed={lang === code}
+                                            title={code === 'EN' ? 'English' : 'Deutsch'}
+                                            className={`flex items-center gap-2 px-3 py-1.5 rounded-lg text-xs font-bold tracking-wider transition-all duration-200 ${
+                                                lang === code
+                                                    ? 'bg-white shadow text-gray-900 scale-105'
+                                                    : 'text-gray-400 hover:text-gray-700'
                                             }`}
                                         >
-                                            {l}
+                                            <span className="text-lg leading-none">{flag}</span>
+                                            <span>{code}</span>
                                         </button>
                                     ))}
                                 </div>
