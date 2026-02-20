@@ -1,6 +1,6 @@
 import { useState, useEffect } from 'react';
 import { useDispatch, useSelector } from 'react-redux';
-import { fetchProducts } from '../store/productSlice';
+import { fetchAllProducts, filterProducts } from '../store/productSlice';
 import FilterSidebar from '../components/FilterSidebar';
 import ProductCard from '../components/ProductCard';
 import { Filter } from 'lucide-react';
@@ -10,11 +10,14 @@ const Shop = () => {
     const { products, isLoading } = useSelector((state) => state.product);
     const [isMobileFilterOpen, setIsMobileFilterOpen] = useState(false);
 
-    // Initial fetch is handled by filter change which runs on mount via useEffect in FilterSidebar?
-    // Actually FilterSidebar runs onMount, calling onFilterChange with initial URL params
+    // Fetch all products once on mount (uses localStorage cache if fresh)
+    useEffect(() => {
+        dispatch(fetchAllProducts());
+    }, [dispatch]);
 
+    // Filter client-side — no API call
     const handleFilterChange = (filters) => {
-        dispatch(fetchProducts(filters));
+        dispatch(filterProducts(filters));
     };
 
     return (
@@ -51,7 +54,7 @@ const Shop = () => {
                     <div className="flex-1">
                         {isLoading ? (
                             <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-8">
-                                {[1, 2, 3, 4, 5, 6].map((i) => (
+                                {[1, 2, 3, 4, 5, 6, 7, 8, 9].map((i) => (
                                     <div key={i} className="animate-pulse">
                                         <div className="bg-gray-200 aspect-[3/4] mb-4"></div>
                                         <div className="h-4 bg-gray-200 w-3/4 mb-2"></div>

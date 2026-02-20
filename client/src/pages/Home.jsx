@@ -2,21 +2,20 @@ import Hero from '../components/Hero';
 import ProductCard from '../components/ProductCard';
 import { useEffect } from 'react';
 import { useDispatch, useSelector } from 'react-redux';
-import { fetchProducts } from '../store/productSlice';
+import { fetchAllProducts } from '../store/productSlice';
 import useTranslation from '../hooks/useTranslation';
 
 const Home = () => {
     const dispatch = useDispatch();
-    const { products, isLoading } = useSelector((state) => state.product);
+    const { allProducts, isLoading } = useSelector((state) => state.product);
     const { t } = useTranslation();
 
+    // Fetch all products once (uses localStorage cache if fresh — zero network cost on repeat visits)
     useEffect(() => {
-        dispatch(fetchProducts());
+        dispatch(fetchAllProducts());
     }, [dispatch]);
 
-    // Hacky filter for trending since API `getProducts` with query might not be fully fleshed out for `isTrending` specifically in the controller I wrote (I only did cats/dept/sizes/colors/price).
-    // I will just show the first 4 products as "Trending" or all of them.
-    const trendingProducts = products.filter(p => p.isTrending).slice(0, 4);
+    const trendingProducts = allProducts.filter(p => p.isTrending).slice(0, 4);
 
     return (
         <div>
@@ -30,23 +29,20 @@ const Home = () => {
                     </div>
 
                     {isLoading ? (
-                        <div className="flex justify-center items-center h-64">
-                            <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-accent"></div>
+                        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-8">
+                            {[1, 2, 3, 4].map((i) => (
+                                <div key={i} className="animate-pulse">
+                                    <div className="bg-gray-200 aspect-[3/4] mb-4"></div>
+                                    <div className="h-4 bg-gray-200 w-3/4 mb-2"></div>
+                                    <div className="h-4 bg-gray-200 w-1/4"></div>
+                                </div>
+                            ))}
                         </div>
                     ) : (
                         <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-8">
-                            {trendingProducts.length > 0 ? trendingProducts.map((product, index) => (
+                            {trendingProducts.map((product, index) => (
                                 <ProductCard key={product._id} product={product} index={index} />
-                            )) : (
-                                // Fallback dummy data if DB is empty (since seeding failed)
-                                [1, 2, 3, 4].map((item, index) => (
-                                    <div key={index} className="animate-pulse">
-                                        <div className="bg-gray-200 aspect-[3/4] mb-4"></div>
-                                        <div className="h-4 bg-gray-200 w-3/4 mb-2"></div>
-                                        <div className="h-4 bg-gray-200 w-1/4"></div>
-                                    </div>
-                                ))
-                            )}
+                            ))}
                         </div>
                     )}
                 </div>
@@ -60,6 +56,7 @@ const Home = () => {
                                 src="https://images.unsplash.com/photo-1483985988355-763728e1935b?ixlib=rb-4.0.3&auto=format&fit=crop&w=1470&q=80"
                                 alt="Fashion Collection"
                                 className="w-full h-[600px] object-cover shadow-2xl"
+                                loading="lazy"
                             />
                         </div>
                         <div>

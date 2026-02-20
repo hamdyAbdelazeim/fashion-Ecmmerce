@@ -1,14 +1,20 @@
+import { memo } from 'react';
 import { motion } from 'framer-motion';
 import { Link } from 'react-router-dom';
 import { useDispatch } from 'react-redux';
 import { addToCart } from '../store/cartSlice';
+
+// Optimize Unsplash URLs for card thumbnails (smaller, faster)
+const optimizeImage = (url) => {
+    if (!url || !url.includes('unsplash.com')) return url;
+    return url.replace(/w=\d+/, 'w=600').replace(/q=\d+/, 'q=70');
+};
 
 const ProductCard = ({ product, index }) => {
     const dispatch = useDispatch();
 
     const handleAddToCart = (e) => {
         e.preventDefault();
-        // Default to first size/color if not specified on card action
         dispatch(addToCart({
             ...product,
             selectedSize: product.sizes[0],
@@ -21,16 +27,17 @@ const ProductCard = ({ product, index }) => {
         <motion.div
             initial={{ opacity: 0, y: 20 }}
             animate={{ opacity: 1, y: 0 }}
-            transition={{ duration: 0.5, delay: index * 0.1 }}
+            transition={{ duration: 0.4, delay: Math.min(index * 0.05, 0.5) }}
             className="group relative"
         >
             <div className="aspect-[3/4] w-full overflow-hidden bg-gray-200 relative">
                 <img
-                    src={product.images[0]}
+                    src={optimizeImage(product.images[0])}
                     alt={product.name}
                     className="h-full w-full object-cover object-center group-hover:scale-105 transition-transform duration-500"
                     loading="lazy"
-                    onError={(e) => { e.target.src = 'https://images.unsplash.com/photo-1515886657613-9f3515b0c78f?ixlib=rb-4.0.3&auto=format&fit=crop&w=800&q=80'; }}
+                    decoding="async"
+                    onError={(e) => { e.target.src = 'https://images.unsplash.com/photo-1515886657613-9f3515b0c78f?auto=format&fit=crop&w=600&q=70'; }}
                 />
                 {product.isTrending && (
                     <div className="absolute top-4 left-4 bg-accent text-white text-xs font-bold px-2 py-1 tracking-wider">
@@ -63,4 +70,4 @@ const ProductCard = ({ product, index }) => {
     );
 };
 
-export default ProductCard;
+export default memo(ProductCard);

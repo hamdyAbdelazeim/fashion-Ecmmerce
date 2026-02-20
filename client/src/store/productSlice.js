@@ -10,7 +10,41 @@ const getAuthConfig = (thunkAPI) => {
     return { headers: { Authorization: `Bearer ${token}` } };
 };
 
-// ── Public ─────────────────────────────────────────────────────────────────
+// ── localStorage cache (30-minute TTL) ────────────────────────────────────
+const CACHE_KEY = 'fec_products_v1';
+const CACHE_TTL = 30 * 60 * 1000;
+
+const getCached = () => {
+    try {
+        const c = JSON.parse(localStorage.getItem(CACHE_KEY));
+        if (c && Date.now() - c.ts < CACHE_TTL) return c.data;
+    } catch {}
+    return null;
+};
+
+const setCache = (data) => {
+    try {
+        localStorage.setItem(CACHE_KEY, JSON.stringify({ data, ts: Date.now() }));
+    } catch {}
+};
+
+// ── Fetch ALL products once — uses cache if fresh ──────────────────────────
+export const fetchAllProducts = createAsyncThunk(
+    'products/fetchAll',
+    async (_, thunkAPI) => {
+        try {
+            const cached = getCached();
+            if (cached) return cached;
+            const { data } = await axios.get(API_URL);
+            setCache(data);
+            return data;
+        } catch (error) {
+            return thunkAPI.rejectWithValue(error.response?.data?.message || error.message);
+        }
+    }
+);
+
+// ── Public (kept for backwards-compat) ────────────────────────────────────
 export const fetchProducts = createAsyncThunk(
     'products/getAll',
     async ({ category, department, sizes, colors, priceRange } = {}, thunkAPI) => {
@@ -126,6 +160,7 @@ export const adminFetchStats = createAsyncThunk('products/adminGetStats', async 
 // ── Slice ───────────────────────────────────────────────────────────────────
 const initialState = {
     products: [],
+    allProducts: [],
     adminProducts: [],
     adminUsers: [],
     adminOrders: [],
@@ -149,10 +184,37 @@ export const productSlice = createSlice({
             state.message = '';
             state.adminError = null;
         },
+        // Client-side filtering — zero API calls
+        filterProducts: (state, action) => {
+            const { category, department, sizes, colors, priceRange } = action.payload || {};
+            let out = state.allProducts;
+            if (department) out = out.filter(p => p.department === department);
+            if (category) out = out.filter(p => p.category === category);
+            if (sizes && sizes.length > 0) out = out.filter(p => p.sizes.some(s => sizes.includes(s)));
+            if (colors && colors.length > 0) out = out.filter(p => p.colors.some(c => colors.includes(c.name)));
+            if (priceRange) {
+                const [min, max] = priceRange.split('-').map(Number);
+                out = out.filter(p => p.price >= min && p.price <= max);
+            }
+            state.products = out;
+        },
     },
     extraReducers: (builder) => {
         builder
-            // Public
+            // fetchAllProducts — single fetch, cached
+            .addCase(fetchAllProducts.pending, (state) => { state.isLoading = true; })
+            .addCase(fetchAllProducts.fulfilled, (state, action) => {
+                state.isLoading = false;
+                state.isSuccess = true;
+                state.allProducts = action.payload;
+                state.products = action.payload;
+            })
+            .addCase(fetchAllProducts.rejected, (state, action) => {
+                state.isLoading = false;
+                state.isError = true;
+                state.message = action.payload;
+            })
+            // fetchProducts (legacy)
             .addCase(fetchProducts.pending, (state) => { state.isLoading = true; })
             .addCase(fetchProducts.fulfilled, (state, action) => { state.isLoading = false; state.isSuccess = true; state.products = action.payload; })
             .addCase(fetchProducts.rejected, (state, action) => { state.isLoading = false; state.isError = true; state.message = action.payload; })
@@ -190,5 +252,5 @@ export const productSlice = createSlice({
     },
 });
 
-export const { reset } = productSlice.actions;
+export const { reset, filterProducts } = productSlice.actions;
 export default productSlice.reducer;
