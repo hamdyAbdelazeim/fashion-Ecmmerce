@@ -79,6 +79,8 @@ const initialState = {
     isError: false,
     isSuccess: false,
     isLoading: false,
+    // True while fetchProfile is in flight (app-init token verification)
+    profileLoading: !!(user?.token),
     message: '',
 };
 
@@ -125,9 +127,12 @@ export const authSlice = createSlice({
             // logout
             .addCase(logout.fulfilled, (state) => { state.user = null; })
             // fetchProfile
+            .addCase(fetchProfile.pending, (state) => { state.profileLoading = true; })
             .addCase(fetchProfile.fulfilled, (state, action) => {
+                state.profileLoading = false;
                 state.user = action.payload;
             })
+            .addCase(fetchProfile.rejected, (state) => { state.profileLoading = false; })
             // updateProfile
             .addCase(updateProfile.pending, (state) => { state.isLoading = true; })
             .addCase(updateProfile.fulfilled, (state, action) => {

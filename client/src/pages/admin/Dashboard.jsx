@@ -3,6 +3,7 @@ import { useDispatch, useSelector } from 'react-redux';
 import { Link } from 'react-router-dom';
 import { TrendingUp, ShoppingBag, Package, Users, ArrowRight, CheckCircle, Clock, Truck } from 'lucide-react';
 import { adminFetchStats, adminFetchOrders, adminFetchProducts, adminFetchUsers } from '../../store/productSlice';
+import Spinner from '../../components/Spinner';
 
 const StatCard = ({ icon: Icon, label, value, sub, color }) => (
     <div className="bg-white rounded-2xl p-6 shadow-sm border border-gray-100 flex items-start gap-4">
@@ -25,7 +26,7 @@ const statusBadge = (order) => {
 
 const Dashboard = () => {
     const dispatch = useDispatch();
-    const { adminStats, adminOrders, adminProducts, adminUsers } = useSelector((s) => s.product);
+    const { adminStats, adminOrders, adminProducts, adminUsers, adminLoading } = useSelector((s) => s.product);
     const { user } = useSelector((s) => s.auth);
 
     useEffect(() => {
@@ -48,6 +49,14 @@ const Dashboard = () => {
 
     const hour = new Date().getHours();
     const greeting = hour < 12 ? 'Good morning' : hour < 18 ? 'Good afternoon' : 'Good evening';
+
+    if (adminLoading && !adminOrders.length && !adminProducts.length) {
+        return (
+            <div className="flex items-center justify-center py-32">
+                <Spinner size="lg" />
+            </div>
+        );
+    }
 
     return (
         <div className="space-y-8">

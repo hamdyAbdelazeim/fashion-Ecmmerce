@@ -2,6 +2,7 @@ import { useState } from 'react';
 import { useSelector } from 'react-redux';
 import { loadStripe } from '@stripe/stripe-js';
 import axios from 'axios';
+import Spinner from '../components/Spinner';
 
 const stripePromise = loadStripe(import.meta.env.VITE_STRIPE_PUBLISHABLE_KEY || '');
 
@@ -225,9 +226,10 @@ const Checkout = () => {
                         <button
                             onClick={handleCheckout}
                             disabled={isLoading}
-                            className="w-full bg-black text-white py-4 rounded-md hover:bg-gray-800 disabled:opacity-50 font-bold transition-all"
+                            className="w-full bg-black text-white py-4 rounded-md hover:bg-gray-800 disabled:opacity-50 font-bold transition-all flex items-center justify-center gap-3"
                         >
-                            {isLoading ? 'Processing...' : 'Pay with Stripe'}
+                            {isLoading && <Spinner size="sm" />}
+                            {isLoading ? 'Processing…' : 'Pay with Stripe'}
                         </button>
                     </div>
                 </div>
