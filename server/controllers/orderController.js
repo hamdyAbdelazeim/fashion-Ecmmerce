@@ -1,49 +1,61 @@
 const Stripe = require('stripe');
-const stripe = process.env.STRIPE_SECRET_KEY ? new Stripe(process.env.STRIPE_SECRET_KEY) : null;
 const Order = require('../models/Order');
 
-
 exports.createCheckoutSession = async (req, res) => {
-    if (!stripe) {
-        return res.status(500).json({ message: 'Stripe is not configured on the server.' });
+    const key = process.env.STRIPE_SECRET_KEY;
+    if (!key || !key.startsWith('sk_')) {
+        return res.status(500).json({
+            message: 'Stripe secret key is missing or invalid on the server. Set STRIPE_SECRET_KEY (sk_test_... or sk_live_...) in your environment variables.'
+        });
     }
 
+    const stripe = new Stripe(key);
     const { cartItems } = req.body;
+
+    if (!cartItems || cartItems.length === 0) {
+        return res.status(400).json({ message: 'Cart is empty.' });
+    }
 
     try {
         const line_items = cartItems.map((item) => {
+            // Stripe requires valid https image URLs — skip if missing
+            const imageUrl = item.images?.[0];
+            const images = imageUrl && imageUrl.startsWith('http') ? [imageUrl] : [];
+
             return {
                 price_data: {
                     currency: 'usd',
                     product_data: {
-                        name: item.name,
-                        images: [item.images[0]],
+                        name: item.name || 'Product',
+                        ...(images.length > 0 && { images }),
                     },
-                    unit_amount: Math.round(item.price * 100),
+                    // Stripe minimum is 50 cents ($0.50)
+                    unit_amount: Math.max(Math.round((item.price || 0) * 100), 50),
                 },
-                quantity: item.qty,
+                quantity: item.qty || 1,
             };
         });
 
+        const clientUrl = process.env.CLIENT_URL || 'http://localhost:5173';
+
         const session = await stripe.checkout.sessions.create({
             payment_method_types: ['card'],
-            customer_email: req.body.email, // Pre-fill user email
+            customer_email: req.body.email,
             line_items,
             mode: 'payment',
-            success_url: `${process.env.CLIENT_URL || 'http://localhost:5173'}/success`,
-            cancel_url: `${process.env.CLIENT_URL || 'http://localhost:5173'}/checkout`,
+            success_url: `${clientUrl}/success?session_id={CHECKOUT_SESSION_ID}`,
+            cancel_url: `${clientUrl}/checkout`,
             shipping_address_collection: {
-                allowed_countries: ['US', 'CA', 'GB'], // Add more as needed
+                allowed_countries: ['US', 'CA', 'GB', 'AU', 'DE', 'FR', 'AE', 'EG'],
             },
             metadata: {
-                userId: req.body.userId,
-                cartItems: JSON.stringify(cartItems.map(item => ({ id: item._id, qty: item.qty, size: item.selectedSize, color: item.selectedColor?.name || '' })))
-            }
+                userId: req.body.userId || '',
+            },
         });
 
         res.json({ id: session.id });
     } catch (error) {
-        console.error('Stripe Error:', error);
+        console.error('Stripe Error:', error.message);
         res.status(500).json({ message: error.message });
     }
 };
