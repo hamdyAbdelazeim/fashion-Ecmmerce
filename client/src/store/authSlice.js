@@ -79,8 +79,8 @@ const initialState = {
     isError: false,
     isSuccess: false,
     isLoading: false,
-    // True while fetchProfile is in flight (app-init token verification)
-    profileLoading: !!(user?.token),
+    // Never block initial render — profile is refreshed silently in background
+    profileLoading: false,
     message: '',
 };
 

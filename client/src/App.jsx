@@ -48,7 +48,7 @@ const AdminRoute = ({ children }) => {
 
 function AppContent() {
   const dispatch = useDispatch();
-  const { user, profileLoading } = useSelector((state) => state.auth);
+  const { user } = useSelector((state) => state.auth);
   const location = useLocation();
   const isAdmin = location.pathname.startsWith('/admin');
 
@@ -58,12 +58,6 @@ function AppContent() {
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
-
-  // Block rendering until the stored token is verified with the server.
-  // This prevents a flash of stale auth state on hard-refresh.
-  if (profileLoading) {
-    return <Spinner fullscreen />;
-  }
 
   return (
     <div className="min-h-screen bg-white">
