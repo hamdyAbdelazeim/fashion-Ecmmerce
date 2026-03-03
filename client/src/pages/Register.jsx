@@ -5,6 +5,7 @@ import { register, reset } from '../store/authSlice';
 import { motion } from 'framer-motion';
 import { AlertCircle, Eye, EyeOff, CheckCircle } from 'lucide-react';
 import useTranslation from '../hooks/useTranslation';
+import OAuthButtons from '../components/OAuthButtons';
 
 const Register = () => {
     const { t } = useTranslation();
@@ -264,6 +265,8 @@ const Register = () => {
                 <div className="mt-6 text-center text-gray-300">
                     <p>{t.alreadyHaveAccount} <Link to={redirect ? `/login?redirect=${redirect}` : '/login'} className="text-white font-bold hover:underline">{t.signIn}</Link></p>
                 </div>
+
+                <OAuthButtons />
             </motion.div>
         </div>
     );

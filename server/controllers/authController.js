@@ -1,6 +1,7 @@
 const User = require('../models/User');
 const jwt = require('jsonwebtoken');
 const bcrypt = require('bcryptjs');
+const axios = require('axios');
 
 const generateToken = (id) => {
     return jwt.sign({ id }, process.env.JWT_SECRET || 'secret', {
@@ -21,6 +22,7 @@ const buildUserPayload = (user) => ({
     country: user.country || '',
     countryFlag: user.countryFlag || '',
     avatar: user.avatar || '',
+    hasPassword: !!user.password,
     token: generateToken(user._id),
 });
 
@@ -104,5 +106,101 @@ exports.updateProfile = async (req, res) => {
         res.json(buildUserPayload(updated));
     } catch (error) {
         res.status(500).json({ message: error.message });
+    }
+};
+
+// POST /api/auth/google
+exports.googleAuth = async (req, res) => {
+    try {
+        const { access_token } = req.body;
+        if (!access_token) return res.status(400).json({ message: 'Google access token is required' });
+
+        // Verify token by fetching user info from Google server-side
+        const { data } = await axios.get('https://www.googleapis.com/oauth2/v3/userinfo', {
+            headers: { Authorization: `Bearer ${access_token}` },
+        });
+        // data: { sub, email, name, picture, email_verified }
+
+        if (!data.email_verified) {
+            return res.status(400).json({ message: 'Google account email is not verified' });
+        }
+
+        // Find by googleId → then by email (account linking) → create new
+        let user = await User.findOne({ googleId: data.sub });
+        if (!user) {
+            user = await User.findOne({ email: data.email });
+            if (user) {
+                user.googleId = data.sub;
+                if (!user.avatar && data.picture) user.avatar = data.picture;
+                await user.save();
+            } else {
+                user = await User.create({
+                    name: data.name,
+                    email: data.email,
+                    googleId: data.sub,
+                    avatar: data.picture || '',
+                });
+            }
+        }
+
+        res.json(buildUserPayload(user));
+    } catch (error) {
+        console.error('Google auth error:', error.message);
+        res.status(500).json({ message: 'Google authentication failed' });
+    }
+};
+
+// POST /api/auth/facebook
+exports.facebookAuth = async (req, res) => {
+    try {
+        const { accessToken, userID } = req.body;
+        if (!accessToken || !userID) {
+            return res.status(400).json({ message: 'Facebook access token and user ID are required' });
+        }
+
+        // Verify token belongs to our app
+        const appToken = `${process.env.FACEBOOK_APP_ID}|${process.env.FACEBOOK_APP_SECRET}`;
+        const debugRes = await axios.get(
+            `https://graph.facebook.com/debug_token?input_token=${accessToken}&access_token=${appToken}`
+        );
+        const debug = debugRes.data.data;
+        if (!debug.is_valid || debug.user_id !== userID) {
+            return res.status(401).json({ message: 'Invalid Facebook token' });
+        }
+
+        // Fetch user profile
+        const profileRes = await axios.get(
+            `https://graph.facebook.com/${userID}?fields=id,name,email,picture.type(large)&access_token=${accessToken}`
+        );
+        const fb = profileRes.data;
+
+        if (!fb.email) {
+            return res.status(400).json({
+                message: 'Email permission is required. Please allow email access when signing in with Facebook.',
+            });
+        }
+
+        // Find by facebookId → then by email → create new
+        let user = await User.findOne({ facebookId: fb.id });
+        if (!user) {
+            user = await User.findOne({ email: fb.email });
+            if (user) {
+                user.facebookId = fb.id;
+                if (!user.avatar && fb.picture?.data?.url) user.avatar = fb.picture.data.url;
+                await user.save();
+            } else {
+                user = await User.create({
+                    name: fb.name,
+                    email: fb.email,
+                    facebookId: fb.id,
+                    avatar: fb.picture?.data?.url || '',
+                });
+            }
+        }
+
+        res.json(buildUserPayload(user));
+    } catch (error) {
+        console.error('Facebook auth error:', error.message);
+        res.status(500).json({ message: 'Facebook authentication failed' });
     }
 };

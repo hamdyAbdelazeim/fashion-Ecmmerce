@@ -36,6 +36,34 @@ export const logout = createAsyncThunk('auth/logout', async () => {
     localStorage.removeItem('user');
 });
 
+// ── Google OAuth ───────────────────────────────────────────────────────────────
+export const loginWithGoogle = createAsyncThunk('auth/loginWithGoogle', async (access_token, thunkAPI) => {
+    try {
+        const response = await axios.post(`${API_URL}/google`, { access_token });
+        if (response.data) {
+            localStorage.setItem('user', JSON.stringify(response.data));
+        }
+        return response.data;
+    } catch (error) {
+        const message = (error.response?.data?.message) || error.message || error.toString();
+        return thunkAPI.rejectWithValue(message);
+    }
+});
+
+// ── Facebook OAuth ─────────────────────────────────────────────────────────────
+export const loginWithFacebook = createAsyncThunk('auth/loginWithFacebook', async ({ accessToken, userID }, thunkAPI) => {
+    try {
+        const response = await axios.post(`${API_URL}/facebook`, { accessToken, userID });
+        if (response.data) {
+            localStorage.setItem('user', JSON.stringify(response.data));
+        }
+        return response.data;
+    } catch (error) {
+        const message = (error.response?.data?.message) || error.message || error.toString();
+        return thunkAPI.rejectWithValue(message);
+    }
+});
+
 // ── Fetch latest profile from server (called on app load) ─────────────────────
 export const fetchProfile = createAsyncThunk('auth/fetchProfile', async (_, thunkAPI) => {
     try {
@@ -126,6 +154,32 @@ export const authSlice = createSlice({
             })
             // logout
             .addCase(logout.fulfilled, (state) => { state.user = null; })
+            // loginWithGoogle
+            .addCase(loginWithGoogle.pending, (state) => { state.isLoading = true; })
+            .addCase(loginWithGoogle.fulfilled, (state, action) => {
+                state.isLoading = false;
+                state.isSuccess = true;
+                state.user = action.payload;
+            })
+            .addCase(loginWithGoogle.rejected, (state, action) => {
+                state.isLoading = false;
+                state.isError = true;
+                state.message = action.payload;
+                state.user = null;
+            })
+            // loginWithFacebook
+            .addCase(loginWithFacebook.pending, (state) => { state.isLoading = true; })
+            .addCase(loginWithFacebook.fulfilled, (state, action) => {
+                state.isLoading = false;
+                state.isSuccess = true;
+                state.user = action.payload;
+            })
+            .addCase(loginWithFacebook.rejected, (state, action) => {
+                state.isLoading = false;
+                state.isError = true;
+                state.message = action.payload;
+                state.user = null;
+            })
             // fetchProfile
             .addCase(fetchProfile.pending, (state) => { state.profileLoading = true; })
             .addCase(fetchProfile.fulfilled, (state, action) => {
