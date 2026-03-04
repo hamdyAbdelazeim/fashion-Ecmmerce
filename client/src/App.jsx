@@ -59,24 +59,6 @@ function AppContent() {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
-  useEffect(() => {
-    window.fbAsyncInit = function () {
-      window.FB.init({
-        appId: import.meta.env.VITE_FACEBOOK_APP_ID || '',
-        cookie: true,
-        xfbml: true,
-        version: 'v19.0',
-      });
-    };
-    if (!document.getElementById('facebook-jssdk')) {
-      const script = document.createElement('script');
-      script.id = 'facebook-jssdk';
-      script.src = 'https://connect.facebook.net/en_US/sdk.js';
-      script.async = true;
-      document.body.appendChild(script);
-    }
-  }, []);
-
   return (
     <div className="min-h-screen bg-white">
       {!isAdmin && <Navbar />}
