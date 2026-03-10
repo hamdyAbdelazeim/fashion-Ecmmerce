@@ -60,9 +60,11 @@ const Checkout = () => {
             const baseUrl = import.meta.env.VITE_API_URL || 'http://localhost:5001';
             const response = await axios.post(`${baseUrl}/api/orders/create-checkout-session`, {
                 cartItems,
-                userId: user?._id,
-                email: shippingInfo.email, // Use email from form
-                shipping: shippingInfo // Send full shipping info if backend supports it
+                
+                email: shippingInfo.email,
+                shipping: shippingInfo,
+            }, {
+                headers: { Authorization: `Bearer ${user?.token}` },
             });
 
             const result = await stripe.redirectToCheckout({

@@ -1,24 +1,35 @@
 import { Link, useSearchParams } from 'react-router-dom';
-import { useEffect } from 'react';
-import { useDispatch } from 'react-redux';
+import { useEffect, useState } from 'react';
+import { useDispatch, useSelector } from 'react-redux';
 import { clearCart } from '../store/cartSlice';
 import confetti from 'canvas-confetti';
+import axios from 'axios';
+
+const API_URL = (import.meta.env.VITE_API_URL || 'http://localhost:5001') + '/api/orders';
 
 const Success = () => {
     const [searchParams] = useSearchParams();
     const sessionId = searchParams.get('session_id');
     const dispatch = useDispatch();
+    const { user } = useSelector((state) => state.auth);
+    const [confirming, setConfirming] = useState(false);
 
     useEffect(() => {
-        if (sessionId) {
-            dispatch(clearCart());
-            confetti({
-                particleCount: 100,
-                spread: 70,
-                origin: { y: 0.6 }
-            });
+        if (!sessionId) return;
+
+        dispatch(clearCart());
+        confetti({ particleCount: 100, spread: 70, origin: { y: 0.6 } });
+
+        // Confirm the order server-side so it shows in order history
+        if (user?.token) {
+            setConfirming(true);
+            axios.post(`${API_URL}/confirm`, { sessionId }, {
+                headers: { Authorization: `Bearer ${user.token}` },
+            }).catch(() => {
+                // Non-fatal — order history will show as "Payment Pending" until confirmed
+            }).finally(() => setConfirming(false));
         }
-    }, [sessionId, dispatch]);
+    }, [sessionId, dispatch, user]);
 
     return (
         <div className="min-h-screen pt-24 bg-gray-50 flex items-center justify-center px-4">
@@ -40,10 +51,10 @@ const Success = () => {
                         Continue Shopping
                     </Link>
                     <Link
-                        to="/profile"
+                        to="/profile?tab=orders"
                         className="block w-full border border-gray-300 text-gray-700 py-3 rounded-md font-medium hover:bg-gray-50 transition-colors"
                     >
-                        View Order
+                        {confirming ? 'Saving order…' : 'View My Orders'}
                     </Link>
                 </div>
             </div>

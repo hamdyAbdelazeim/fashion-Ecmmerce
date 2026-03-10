@@ -64,6 +64,10 @@ const orderSchema = new mongoose.Schema({
     deliveredAt: {
         type: Date,
     },
+    stripeSessionId: {
+        type: String,
+        default: null,
+    },
 }, { timestamps: true });
 
 module.exports = mongoose.model('Order', orderSchema);

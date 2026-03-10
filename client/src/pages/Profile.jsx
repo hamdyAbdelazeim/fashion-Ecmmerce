@@ -1,12 +1,14 @@
 import { useState, useRef, useCallback, useEffect } from 'react';
 import { useSelector, useDispatch } from 'react-redux';
+import { useSearchParams, Link } from 'react-router-dom';
 import { motion, AnimatePresence } from 'framer-motion';
 import {
     Camera, Save, X, ChevronDown, Search,
     User, Mail, Phone, MapPin, Lock, Bell, Shield,
-    Check, Loader2,
+    Check, Loader2, ShoppingBag,
 } from 'lucide-react';
 import { updateProfile, reset } from '../store/authSlice';
+import { fetchMyOrders } from '../store/orderSlice';
 import useTranslation from '../hooks/useTranslation';
 
 // ─── Countries ────────────────────────────────────────────────────────────────
@@ -92,6 +94,8 @@ const SectionHeader = ({ icon: Icon, title }) => (
 const Profile = () => {
     const dispatch = useDispatch();
     const { user, isLoading, isSuccess, isError, message } = useSelector((state) => state.auth);
+    const { myOrders, isLoading: ordersLoading } = useSelector((state) => state.orders);
+    const [searchParams] = useSearchParams();
 
     const { t } = useTranslation();
 
@@ -111,7 +115,16 @@ const Profile = () => {
 
     const [saved, setSaved] = useState(false);
     const [saveError, setSaveError] = useState('');
-    const [activeTab, setActiveTab] = useState('profile');
+    const [activeTab, setActiveTab] = useState(() =>
+        searchParams.get('tab') === 'orders' ? 'orders' : 'profile'
+    );
+
+    // Fetch orders whenever the orders tab is shown
+    useEffect(() => {
+        if (activeTab === 'orders') {
+            dispatch(fetchMyOrders());
+        }
+    }, [activeTab, dispatch]);
 
     const [form, setForm] = useState({
         name: user?.name || '',
@@ -343,6 +356,7 @@ const Profile = () => {
                     {[
                         { key: 'profile', label: t.publicProfile, icon: User },
                         { key: 'account', label: t.accountSettings, icon: Shield },
+                        { key: 'orders', label: t.myOrders, icon: ShoppingBag },
                     ].map(({ key, label, icon: Icon }) => (
                         <button
                             key={key}
@@ -516,6 +530,71 @@ const Profile = () => {
                                         )}
                                     </AnimatePresence>
                                 </div>
+                            </div>
+                        ) : activeTab === 'orders' ? (
+                            <div>
+                                <SectionHeader icon={ShoppingBag} title={t.myOrders} />
+                                {ordersLoading ? (
+                                    <div className="space-y-3">
+                                        {[1, 2, 3].map((i) => (
+                                            <div key={i} className="animate-pulse flex gap-4 p-4 border border-gray-100 rounded-xl">
+                                                <div className="w-16 h-16 bg-gray-200 rounded-lg flex-shrink-0" />
+                                                <div className="flex-1 space-y-2 py-1">
+                                                    <div className="h-3 bg-gray-200 rounded w-1/2" />
+                                                    <div className="h-3 bg-gray-200 rounded w-1/4" />
+                                                </div>
+                                            </div>
+                                        ))}
+                                    </div>
+                                ) : myOrders.length === 0 ? (
+                                    <div className="text-center py-16">
+                                        <ShoppingBag size={40} className="mx-auto text-gray-200 mb-4" />
+                                        <p className="text-gray-400 text-sm">{t.noOrders}</p>
+                                        <Link to="/shop" className="inline-block mt-4 text-sm font-medium text-black underline underline-offset-2">
+                                            {t.startShopping}
+                                        </Link>
+                                    </div>
+                                ) : (
+                                    <div className="space-y-4">
+                                        {myOrders.map((order) => (
+                                            <div key={order._id} className="border border-gray-100 rounded-xl overflow-hidden">
+                                                {/* Order header */}
+                                                <div className="flex items-center justify-between px-4 py-3 bg-gray-50 border-b border-gray-100">
+                                                    <div>
+                                                        <p className="text-xs text-gray-400 font-mono">#{order._id.slice(-8).toUpperCase()}</p>
+                                                        <p className="text-xs text-gray-400 mt-0.5">
+                                                            {new Date(order.createdAt).toLocaleDateString(undefined, { year: 'numeric', month: 'short', day: 'numeric' })}
+                                                        </p>
+                                                    </div>
+                                                    <div className="text-right">
+                                                        <span className={`inline-block text-xs font-medium px-2.5 py-1 rounded-full ${order.isPaid ? 'bg-green-50 text-green-600' : 'bg-amber-50 text-amber-600'}`}>
+                                                            {order.isPaid ? t.paid : t.paymentPending}
+                                                        </span>
+                                                        <p className="text-sm font-bold text-gray-900 mt-1">${order.totalPrice.toFixed(2)}</p>
+                                                    </div>
+                                                </div>
+                                                {/* Order items */}
+                                                <div className="divide-y divide-gray-50">
+                                                    {order.orderItems.map((item, idx) => (
+                                                        <div key={idx} className="flex items-center gap-3 px-4 py-3">
+                                                            <div className="w-12 h-12 rounded-lg overflow-hidden bg-gray-100 flex-shrink-0">
+                                                                {item.image ? (
+                                                                    <img src={item.image} alt={item.name} className="w-full h-full object-cover" />
+                                                                ) : (
+                                                                    <ShoppingBag size={20} className="m-auto mt-3 text-gray-300" />
+                                                                )}
+                                                            </div>
+                                                            <div className="flex-1 min-w-0">
+                                                                <p className="text-sm font-medium text-gray-800 truncate">{item.name}</p>
+                                                                <p className="text-xs text-gray-400">Qty: {item.qty} · ${item.price.toFixed(2)}</p>
+                                                            </div>
+                                                        </div>
+                                                    ))}
+                                                </div>
+                                            </div>
+                                        ))}
+                                    </div>
+                                )}
                             </div>
                         ) : (
                             <div className="space-y-6">

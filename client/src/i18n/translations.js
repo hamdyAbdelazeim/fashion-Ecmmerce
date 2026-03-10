@@ -60,6 +60,11 @@ const translations = {
         // ── Profile ─────────────────────────────────────────────────────────
         publicProfile: 'Public Profile',
         accountSettings: 'Account Settings',
+        myOrders: 'My Orders',
+        noOrders: 'You have no orders yet.',
+        startShopping: 'Start Shopping',
+        paid: 'Paid',
+        paymentPending: 'Payment Pending',
         editPhoto: 'Edit Photo',
         email: 'Email Address',
         username: 'Username',
@@ -178,6 +183,11 @@ const translations = {
         // ── Profile ─────────────────────────────────────────────────────────
         publicProfile: 'Öffentliches Profil',
         accountSettings: 'Kontoeinstellungen',
+        myOrders: 'Meine Bestellungen',
+        noOrders: 'Du hast noch keine Bestellungen.',
+        startShopping: 'Shoppen starten',
+        paid: 'Bezahlt',
+        paymentPending: 'Zahlung ausstehend',
         editPhoto: 'Foto bearbeiten',
         email: 'E-Mail-Adresse',
         username: 'Benutzername',

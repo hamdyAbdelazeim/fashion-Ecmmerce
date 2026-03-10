@@ -10,7 +10,7 @@ exports.createCheckoutSession = async (req, res) => {
     }
 
     const stripe = new Stripe(key);
-    const { cartItems } = req.body;
+    const { cartItems, shipping } = req.body;
 
     if (!cartItems || cartItems.length === 0) {
         return res.status(400).json({ message: 'Cart is empty.' });
@@ -18,7 +18,6 @@ exports.createCheckoutSession = async (req, res) => {
 
     try {
         const line_items = cartItems.map((item) => {
-            // Stripe requires valid https image URLs — skip if missing
             const imageUrl = item.images?.[0];
             const images = imageUrl && imageUrl.startsWith('http') ? [imageUrl] : [];
 
@@ -29,7 +28,6 @@ exports.createCheckoutSession = async (req, res) => {
                         name: item.name || 'Product',
                         ...(images.length > 0 && { images }),
                     },
-                    // Stripe minimum is 50 cents ($0.50)
                     unit_amount: Math.max(Math.round((item.price || 0) * 100), 50),
                 },
                 quantity: item.qty || 1,
@@ -49,13 +47,95 @@ exports.createCheckoutSession = async (req, res) => {
                 allowed_countries: ['US', 'CA', 'GB', 'AU', 'DE', 'FR', 'AE', 'EG'],
             },
             metadata: {
-                userId: req.body.userId || '',
+                userId: req.user ? String(req.user._id) : (req.body.userId || ''),
             },
         });
+
+        // Save a pending order so we can show it in order history after payment
+        if (req.user) {
+            try {
+                const totalPrice = cartItems.reduce((acc, item) => acc + (item.price || 0) * (item.qty || 1), 0);
+                await Order.create({
+                    user: req.user._id,
+                    orderItems: cartItems.map((item) => ({
+                        name: item.name || 'Product',
+                        qty: item.qty || 1,
+                        image: item.images?.[0] || '',
+                        price: item.price || 0,
+                        product: item._id,
+                    })),
+                    shippingAddress: {
+                        address: shipping?.address || 'N/A',
+                        city: shipping?.city || 'N/A',
+                        postalCode: shipping?.postalCode || 'N/A',
+                        country: shipping?.country || 'N/A',
+                    },
+                    paymentMethod: 'Stripe',
+                    totalPrice,
+                    taxPrice: 0,
+                    shippingPrice: 0,
+                    isPaid: false,
+                    stripeSessionId: session.id,
+                });
+            } catch (orderErr) {
+                console.error('Failed to save pending order:', orderErr.message);
+            }
+        }
 
         res.json({ id: session.id });
     } catch (error) {
         console.error('Stripe Error:', error.message);
+        res.status(500).json({ message: error.message });
+    }
+};
+
+// Called from Success page — marks the pending order as paid after Stripe confirms payment
+exports.confirmOrder = async (req, res) => {
+    const key = process.env.STRIPE_SECRET_KEY;
+    if (!key || !key.startsWith('sk_')) {
+        return res.status(500).json({ message: 'Stripe not configured.' });
+    }
+
+    const { sessionId } = req.body;
+    if (!sessionId) return res.status(400).json({ message: 'Session ID required.' });
+
+    try {
+        const stripe = new Stripe(key);
+        const session = await stripe.checkout.sessions.retrieve(sessionId);
+
+        if (session.payment_status !== 'paid') {
+            return res.status(400).json({ message: 'Payment not completed.' });
+        }
+
+        const order = await Order.findOne({ stripeSessionId: sessionId });
+        if (!order) {
+            return res.status(404).json({ message: 'Order not found.' });
+        }
+
+        if (!order.isPaid) {
+            order.isPaid = true;
+            order.paidAt = Date.now();
+            order.paymentResult = {
+                id: session.payment_intent,
+                status: session.payment_status,
+                email_address: session.customer_email,
+            };
+            await order.save();
+        }
+
+        res.json(order);
+    } catch (error) {
+        console.error('Confirm order error:', error.message);
+        res.status(500).json({ message: error.message });
+    }
+};
+
+// Returns all orders for the authenticated user, newest first
+exports.getMyOrders = async (req, res) => {
+    try {
+        const orders = await Order.find({ user: req.user._id }).sort({ createdAt: -1 });
+        res.json(orders);
+    } catch (error) {
         res.status(500).json({ message: error.message });
     }
 };
@@ -104,4 +184,3 @@ exports.getOrderStats = async (req, res) => {
         res.status(500).json({ message: error.message });
     }
 };
-
