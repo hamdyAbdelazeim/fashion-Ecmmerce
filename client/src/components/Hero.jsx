@@ -4,13 +4,15 @@ import { Link } from 'react-router-dom';
 const Hero = () => {
     return (
         <div className="relative h-screen w-full overflow-hidden bg-gray-100">
-            {/* Background Image Parallax could be added here */}
-            <div
-                className="absolute inset-0 bg-cover bg-center"
-                style={{ backgroundImage: 'url("https://images.unsplash.com/photo-1490481651871-ab68de25d43d?ixlib=rb-4.0.3&auto=format&fit=crop&w=2070&q=80")' }}
-            >
-                <div className="absolute inset-0 bg-black/30" />
-            </div>
+            <img
+                src="https://images.unsplash.com/photo-1490481651871-ab68de25d43d?ixlib=rb-4.0.3&auto=format&fit=crop&w=1400&q=75&fm=webp"
+                alt=""
+                aria-hidden="true"
+                fetchPriority="high"
+                decoding="sync"
+                className="absolute inset-0 w-full h-full object-cover"
+            />
+            <div className="absolute inset-0 bg-black/30" />
 
             <div className="relative h-full flex items-center justify-center text-center px-4">
                 <div className="max-w-4xl mx-auto text-white">

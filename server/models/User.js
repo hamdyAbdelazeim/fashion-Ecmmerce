@@ -35,6 +35,9 @@ const userSchema = new mongoose.Schema({
     countryFlag: { type: String, default: '' },
     // Avatar stored as base64 data URL (small images only)
     avatar: { type: String, default: '' },
+    // Password reset
+    resetPasswordToken: { type: String, default: null },
+    resetPasswordExpires: { type: Date, default: null },
 }, { timestamps: true });
 
 // Hash password before saving (skip for OAuth users with null password)

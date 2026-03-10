@@ -25,6 +25,7 @@ exports.getProducts = async (req, res) => {
                 Product.find(query).skip(skip).limit(limitNum).lean(),
                 Product.countDocuments(query),
             ]);
+            res.set('Cache-Control', 'public, max-age=60');
             return res.json({
                 products,
                 page: pageNum,
@@ -36,9 +37,16 @@ exports.getProducts = async (req, res) => {
 
         // Legacy / backward-compat: return plain array (no page param sent)
         const products = await Product.find(query).lean();
+        res.set('Cache-Control', 'public, max-age=60');
         res.json(products);
     } catch (error) {
-        res.status(500).json({ message: error.message });
+        // MongoDB unavailable (cold start on free tier) — serve in-memory fallback
+        console.warn('DB error on getProducts, using in-memory fallback:', error.message);
+        const fallback = getInMemoryProducts(
+            Object.fromEntries(Object.entries(req.query).filter(([k]) => ['category','department','sizes','colors'].includes(k)))
+        );
+        res.set('Cache-Control', 'no-store');
+        res.json(fallback);
     }
 };
 

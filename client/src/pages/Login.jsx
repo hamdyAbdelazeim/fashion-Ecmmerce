@@ -87,7 +87,7 @@ const Login = () => {
     return (
         <div
             className="min-h-screen flex items-center justify-center bg-gray-50 bg-cover bg-center"
-            style={{ backgroundImage: 'url("https://images.unsplash.com/photo-1469334031218-e382a71b716b?ixlib=rb-4.0.3&auto=format&fit=crop&w=2070&q=80")' }}
+            style={{ backgroundImage: 'url("https://images.unsplash.com/photo-1469334031218-e382a71b716b?ixlib=rb-4.0.3&auto=format&fit=crop&w=1200&q=75&fm=webp")' }}
         >
             <div className="absolute inset-0 bg-black/40 backdrop-blur-sm" />
 
@@ -155,6 +155,11 @@ const Login = () => {
                                 <AlertCircle size={12} /> {errors.password}
                             </motion.p>
                         )}
+                        <div className="text-right mt-1.5">
+                            <Link to="/forgot-password" className="text-xs text-gray-300 hover:text-white transition-colors">
+                                Forgot password?
+                            </Link>
+                        </div>
                     </div>
 
                     {/* Server error (wrong credentials) */}

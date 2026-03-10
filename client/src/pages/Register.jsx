@@ -121,7 +121,7 @@ const Register = () => {
     return (
         <div
             className="min-h-screen flex items-center justify-center bg-gray-50 bg-cover bg-center"
-            style={{ backgroundImage: 'url("https://images.unsplash.com/photo-1485230946086-1d99d529a763?ixlib=rb-4.0.3&auto=format&fit=crop&w=2070&q=80")' }}
+            style={{ backgroundImage: 'url("https://images.unsplash.com/photo-1485230946086-1d99d529a763?ixlib=rb-4.0.3&auto=format&fit=crop&w=1200&q=75&fm=webp")' }}
         >
             <div className="absolute inset-0 bg-black/40 backdrop-blur-sm" />
 

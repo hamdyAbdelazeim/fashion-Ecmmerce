@@ -1,7 +1,9 @@
+const crypto = require('crypto');
 const User = require('../models/User');
 const jwt = require('jsonwebtoken');
 const bcrypt = require('bcryptjs');
 const axios = require('axios');
+const { sendPasswordResetEmail } = require('../utils/emailService');
 
 const generateToken = (id) => {
     return jwt.sign({ id }, process.env.JWT_SECRET || 'secret', {
@@ -147,6 +149,67 @@ exports.googleAuth = async (req, res) => {
     } catch (error) {
         console.error('Google auth error:', error.message);
         res.status(500).json({ message: 'Google authentication failed' });
+    }
+};
+
+// POST /api/auth/forgot-password
+exports.forgotPassword = async (req, res) => {
+    try {
+        const { email } = req.body;
+        if (!email) return res.status(400).json({ message: 'Email is required' });
+
+        const user = await User.findOne({ email });
+        // Always respond success to avoid email enumeration
+        if (!user) return res.json({ message: 'If that email exists, a reset link has been sent.' });
+
+        // OAuth-only users have no password to reset
+        if (!user.password && (user.googleId || user.facebookId)) {
+            return res.json({ message: 'If that email exists, a reset link has been sent.' });
+        }
+
+        // Generate a plain token, store its hash in DB
+        const token = crypto.randomBytes(32).toString('hex');
+        user.resetPasswordToken = crypto.createHash('sha256').update(token).digest('hex');
+        user.resetPasswordExpires = Date.now() + 60 * 60 * 1000; // 1 hour
+        await user.save();
+
+        const resetUrl = `${process.env.CLIENT_URL}/reset-password/${token}`;
+        await sendPasswordResetEmail({ to: user.email, resetUrl, name: user.name });
+
+        res.json({ message: 'If that email exists, a reset link has been sent.' });
+    } catch (error) {
+        console.error('Forgot password error:', error.message);
+        res.status(500).json({ message: 'Failed to send reset email. Please try again.' });
+    }
+};
+
+// POST /api/auth/reset-password/:token
+exports.resetPassword = async (req, res) => {
+    try {
+        const { password } = req.body;
+        if (!password || password.length < 6) {
+            return res.status(400).json({ message: 'Password must be at least 6 characters' });
+        }
+
+        const hashedToken = crypto.createHash('sha256').update(req.params.token).digest('hex');
+        const user = await User.findOne({
+            resetPasswordToken: hashedToken,
+            resetPasswordExpires: { $gt: Date.now() },
+        });
+
+        if (!user) {
+            return res.status(400).json({ message: 'Reset link is invalid or has expired.' });
+        }
+
+        user.password = password; // pre-save hook will hash it
+        user.resetPasswordToken = null;
+        user.resetPasswordExpires = null;
+        await user.save();
+
+        res.json({ message: 'Password reset successful. You can now log in.' });
+    } catch (error) {
+        console.error('Reset password error:', error.message);
+        res.status(500).json({ message: error.message });
     }
 };
 

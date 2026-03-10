@@ -64,6 +64,28 @@ export const loginWithFacebook = createAsyncThunk('auth/loginWithFacebook', asyn
     }
 });
 
+// ── Forgot Password ───────────────────────────────────────────────────────────
+export const forgotPassword = createAsyncThunk('auth/forgotPassword', async (email, thunkAPI) => {
+    try {
+        const response = await axios.post(`${API_URL}/forgot-password`, { email });
+        return response.data.message;
+    } catch (error) {
+        const message = (error.response?.data?.message) || error.message || error.toString();
+        return thunkAPI.rejectWithValue(message);
+    }
+});
+
+// ── Reset Password ────────────────────────────────────────────────────────────
+export const resetPassword = createAsyncThunk('auth/resetPassword', async ({ token, password }, thunkAPI) => {
+    try {
+        const response = await axios.post(`${API_URL}/reset-password/${token}`, { password });
+        return response.data.message;
+    } catch (error) {
+        const message = (error.response?.data?.message) || error.message || error.toString();
+        return thunkAPI.rejectWithValue(message);
+    }
+});
+
 // ── Fetch latest profile from server (called on app load) ─────────────────────
 export const fetchProfile = createAsyncThunk('auth/fetchProfile', async (_, thunkAPI) => {
     try {
@@ -77,6 +99,10 @@ export const fetchProfile = createAsyncThunk('auth/fetchProfile', async (_, thun
         localStorage.setItem('user', JSON.stringify(updated));
         return updated;
     } catch (error) {
+        // Token expired or invalid — clear stale session silently
+        if (error.response?.status === 401) {
+            localStorage.removeItem('user');
+        }
         const message = (error.response?.data?.message) || error.message || error.toString();
         return thunkAPI.rejectWithValue(message);
     }
@@ -186,7 +212,13 @@ export const authSlice = createSlice({
                 state.profileLoading = false;
                 state.user = action.payload;
             })
-            .addCase(fetchProfile.rejected, (state) => { state.profileLoading = false; })
+            .addCase(fetchProfile.rejected, (state, action) => {
+                state.profileLoading = false;
+                // If token was expired/invalid, clear the user so they're logged out
+                if (action.payload === 'No token' || action.error?.message?.includes('401')) {
+                    state.user = null;
+                }
+            })
             // updateProfile
             .addCase(updateProfile.pending, (state) => { state.isLoading = true; })
             .addCase(updateProfile.fulfilled, (state, action) => {
@@ -195,6 +227,30 @@ export const authSlice = createSlice({
                 state.user = action.payload;
             })
             .addCase(updateProfile.rejected, (state, action) => {
+                state.isLoading = false;
+                state.isError = true;
+                state.message = action.payload;
+            })
+            // forgotPassword
+            .addCase(forgotPassword.pending, (state) => { state.isLoading = true; })
+            .addCase(forgotPassword.fulfilled, (state, action) => {
+                state.isLoading = false;
+                state.isSuccess = true;
+                state.message = action.payload;
+            })
+            .addCase(forgotPassword.rejected, (state, action) => {
+                state.isLoading = false;
+                state.isError = true;
+                state.message = action.payload;
+            })
+            // resetPassword
+            .addCase(resetPassword.pending, (state) => { state.isLoading = true; })
+            .addCase(resetPassword.fulfilled, (state, action) => {
+                state.isLoading = false;
+                state.isSuccess = true;
+                state.message = action.payload;
+            })
+            .addCase(resetPassword.rejected, (state, action) => {
                 state.isLoading = false;
                 state.isError = true;
                 state.message = action.payload;

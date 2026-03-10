@@ -5,6 +5,8 @@ import react from '@vitejs/plugin-react'
 export default defineConfig({
   plugins: [react()],
   build: {
+    target: 'es2018',
+    cssMinify: true,
     rollupOptions: {
       output: {
         manualChunks: {
@@ -12,8 +14,10 @@ export default defineConfig({
           'vendor-react': ['react', 'react-dom', 'react-router-dom'],
           // State management
           'vendor-redux': ['@reduxjs/toolkit', 'react-redux'],
-          // UI / animation libs
-          'vendor-ui': ['framer-motion', 'lucide-react'],
+          // Animation — split from icons so non-animated pages skip it
+          'vendor-motion': ['framer-motion'],
+          // Icons
+          'vendor-icons': ['lucide-react'],
           // Stripe — large, rarely changes
           'vendor-stripe': ['@stripe/stripe-js'],
         },

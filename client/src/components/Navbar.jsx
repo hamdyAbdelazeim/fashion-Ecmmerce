@@ -17,8 +17,17 @@ const Navbar = () => {
     const { t, lang, changeLanguage } = useTranslation();
 
     useEffect(() => {
-        const handleScroll = () => setScrolled(window.scrollY > 50);
-        window.addEventListener('scroll', handleScroll);
+        let ticking = false;
+        const handleScroll = () => {
+            if (!ticking) {
+                requestAnimationFrame(() => {
+                    setScrolled(window.scrollY > 50);
+                    ticking = false;
+                });
+                ticking = true;
+            }
+        };
+        window.addEventListener('scroll', handleScroll, { passive: true });
         return () => window.removeEventListener('scroll', handleScroll);
     }, []);
 
@@ -47,7 +56,9 @@ const Navbar = () => {
                     className={`flex items-center gap-1.5 px-2 py-1 rounded-lg text-[11px] font-bold tracking-wider transition-all duration-200 ${
                         lang === code
                             ? 'bg-white shadow text-gray-900 scale-105'
-                            : 'text-gray-400 hover:text-gray-700 hover:bg-white/60'
+                            : scrolled || isOpen
+                                ? 'text-gray-400 hover:text-gray-700 hover:bg-white/60'
+                                : 'text-white/70 hover:text-white hover:bg-white/20'
                     }`}
                 >
                     <span className="text-base leading-none">{flag}</span>

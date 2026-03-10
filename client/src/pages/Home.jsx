@@ -7,14 +7,18 @@ import useTranslation from '../hooks/useTranslation';
 
 const Home = () => {
     const dispatch = useDispatch();
-    const { allProducts, isLoading } = useSelector((state) => state.product);
+    const { allProducts, isLoading, isError } = useSelector((state) => state.product);
     const { t } = useTranslation();
 
     useEffect(() => {
         dispatch(fetchAllProducts());
     }, [dispatch]);
 
-    const trendingProducts = allProducts.filter(p => p.isTrending).slice(0, 4);
+    // Show isTrending products, fallback to first 4 products if none are flagged
+    const trendingProducts = (() => {
+        const flagged = allProducts.filter(p => p.isTrending);
+        return (flagged.length > 0 ? flagged : allProducts).slice(0, 4);
+    })();
 
     return (
         <div>
@@ -40,6 +44,10 @@ const Home = () => {
                                 </div>
                             ))}
                         </div>
+                    ) : isError || trendingProducts.length === 0 ? (
+                        <div className="text-center py-12 text-gray-400">
+                            <p className="text-lg">No products available right now. Check back soon.</p>
+                        </div>
                     ) : (
                         <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-8">
                             {trendingProducts.map((product, index) => (
@@ -55,7 +63,7 @@ const Home = () => {
                     <div className="grid grid-cols-1 md:grid-cols-2 gap-12 items-center">
                         <div>
                             <img
-                                src="https://images.unsplash.com/photo-1483985988355-763728e1935b?ixlib=rb-4.0.3&auto=format&fit=crop&w=1470&q=80"
+                                src="https://images.unsplash.com/photo-1483985988355-763728e1935b?ixlib=rb-4.0.3&auto=format&fit=crop&w=900&q=75&fm=webp"
                                 alt="Fashion Collection lookbook"
                                 className="w-full h-[600px] object-cover shadow-2xl"
                                 loading="lazy"

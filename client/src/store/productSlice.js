@@ -20,6 +20,8 @@ const readCache = () => {
         if (!raw) return null;
         const entry = JSON.parse(raw);
         if (Date.now() - entry.ts > CACHE_TTL) { localStorage.removeItem(CACHE_KEY); return null; }
+        // Don't treat empty array as valid — force a fresh fetch
+        if (!Array.isArray(entry.data) || entry.data.length === 0) { localStorage.removeItem(CACHE_KEY); return null; }
         return entry.data;
     } catch { return null; }
 };
@@ -40,8 +42,8 @@ export const fetchAllProducts = createAsyncThunk(
         const cached = readCache();
         if (cached) return cached;
         try {
-            // no ?page → backend returns plain array (all products)
-            const { data } = await axios.get(API_URL);
+            // use paginated endpoint with high limit to cap unbounded fetches
+            const { data } = await axios.get(`${API_URL}?page=1&limit=200`);
             const list = Array.isArray(data) ? data : (data.products || []);
             writeCache(list);
             return list;

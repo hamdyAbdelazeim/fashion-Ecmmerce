@@ -19,6 +19,8 @@ const Register = lazy(() => import('./pages/Register'));
 const Checkout = lazy(() => import('./pages/Checkout'));
 const Success = lazy(() => import('./pages/Success'));
 const Profile = lazy(() => import('./pages/Profile'));
+const ForgotPassword = lazy(() => import('./pages/ForgotPassword'));
+const ResetPassword = lazy(() => import('./pages/ResetPassword'));
 const NotFound = lazy(() => import('./pages/NotFound'));
 
 // Admin pages — loaded only when the user visits /admin/*
@@ -72,6 +74,8 @@ function AppContent() {
             <Route path="/product/:id" element={<ProductDetails />} />
             <Route path="/login" element={<Login />} />
             <Route path="/register" element={<Register />} />
+            <Route path="/forgot-password" element={<ForgotPassword />} />
+            <Route path="/reset-password/:token" element={<ResetPassword />} />
 
             {/* Protected User Routes */}
             <Route path="/checkout" element={<ProtectedRoute><Checkout /></ProtectedRoute>} />
